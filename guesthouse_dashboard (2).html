@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GAIL Guest House — Vijaipur</title>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<!-- Excel export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════ */
+:root{
+  --navy:#0d2b55;--navy-m:#1a3f72;--navy-l:#2356a0;
+  --gold:#c9a84c;--gold-l:#e8c97a;
+  --occ:#c0392b;--occ-bg:#fdf0ef;--occ-br:#e8b4b0;
+  --vac:#1a7340;--vac-bg:#edf7f1;--vac-br:#9ed4b2;
+  --mnt:#b45309;--mnt-bg:#fef3e2;--mnt-br:#f6c87e;
+  --vip:#6d28d9;--vip-bg:#f5f3ff;--vip-br:#c4b5fd;
+  --surface:#f5f7fa;--white:#fff;--border:#dce3ed;
+  --td:#0f1e35;--tm:#3d5270;--tl:#6b7fa0;
+  --sh:0 2px 12px rgba(13,43,85,.10);
+  --shl:0 8px 32px rgba(13,43,85,.16);
+  --r:8px;--rl:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--surface);color:var(--td);font-size:14px;min-height:100vh}
+
+/* ── LOADING OVERLAY ── */
+#loadOverlay{position:fixed;inset:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px}
+.load-logo{width:64px;height:64px;background:var(--gold);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:var(--navy)}
+.load-text{color:#fff;font-size:16px;font-weight:600}
+.load-sub{color:rgba(255,255,255,.55);font-size:12px}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;margin-top:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── AUTH / LOGIN ── */
+#authScreen{position:fixed;inset:0;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-m) 60%,var(--navy-l) 100%);display:none;align-items:center;justify-content:center;z-index:8000}
+#authScreen.show{display:flex}
+.auth-card{background:var(--white);border-radius:var(--rl);padding:44px;width:380px;max-width:95vw;box-shadow:var(--shl);text-align:center}
+.auth-logo{width:60px;height:60px;background:var(--gold);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:var(--navy);margin:0 auto 18px}
+.auth-title{font-size:22px;font-weight:800;color:var(--navy);margin-bottom:4px}
+.auth-sub{font-size:12px;color:var(--tl);margin-bottom:28px;line-height:1.6}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:13px;border:2px solid var(--border);border-radius:var(--r);background:var(--white);cursor:pointer;font-size:14px;font-weight:600;color:var(--td);transition:all .2s;margin-bottom:12px}
+.google-btn:hover{border-color:var(--navy);background:#f0f4ff}
+.google-icon{width:20px;height:20px}
+.auth-notice{font-size:11px;color:var(--tl);line-height:1.7;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.auth-err{font-size:12px;color:var(--occ);margin-top:10px;display:none}
+
+/* ── ACCESS DENIED ── */
+#accessDenied{position:fixed;inset:0;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-m) 100%);display:none;align-items:center;justify-content:center;z-index:7000}
+#accessDenied.show{display:flex}
+.denied-card{background:var(--white);border-radius:var(--rl);padding:40px;width:420px;max-width:95vw;text-align:center;box-shadow:var(--shl)}
+.denied-icon{font-size:48px;margin-bottom:16px}
+.denied-title{font-size:20px;font-weight:800;color:var(--occ);margin-bottom:8px}
+.denied-sub{font-size:13px;color:var(--tm);line-height:1.7;margin-bottom:20px}
+.uid-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px;font-size:12px;font-family:monospace;word-break:break-all;margin-bottom:16px;color:var(--navy-m)}
+
+/* ── HEADER ── */
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-m) 60%,var(--navy-l) 100%);color:#fff;padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:66px;box-shadow:var(--shl);position:sticky;top:0;z-index:200}
+.hdr-l{display:flex;align-items:center;gap:14px}
+.hdr-logo{width:40px;height:40px;background:var(--gold);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--navy);flex-shrink:0}
+.hdr-title h1{font-size:16px;font-weight:700}
+.hdr-title p{font-size:11px;color:rgba(255,255,255,.6);margin-top:1px}
+.hdr-r{display:flex;align-items:center;gap:14px}
+.user-chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .2s}
+.user-chip:hover{background:rgba(255,255,255,.2)}
+.user-av{width:24px;height:24px;border-radius:50%;object-fit:cover;background:var(--gold)}
+.role-chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+.r-admin{background:#dbeafe;color:#1e40af}.r-supervisor{background:#fef9c3;color:#854d0e}.r-viewer{background:#f0fdf4;color:#166534}
+.clock-blk{text-align:right;font-size:11px;color:rgba(255,255,255,.65);line-height:1.7}
+.clock-blk span{font-size:14px;font-weight:600;color:var(--gold-l);display:block}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;margin-right:4px}
+.sync-dot.syncing{background:var(--gold);animation:pulse 1s infinite}
+.sync-dot.error{background:var(--occ)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── NAV ── */
+.nav{background:var(--white);border-bottom:1px solid var(--border);padding:0 28px;display:flex;gap:2px;position:sticky;top:66px;z-index:199;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto}
+.nav-t{padding:13px 18px;font-size:13px;font-weight:600;color:var(--tl);cursor:pointer;border:none;background:none;border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap}
+.nav-t:hover{color:var(--navy-l)}.nav-t.active{color:var(--navy);border-bottom-color:var(--gold)}
+
+/* ── MAIN ── */
+.main{padding:24px 28px;max-width:1440px;margin:0 auto}
+.screen{display:none}.screen.active{display:block}
+
+/* ── BUTTONS ── */
+.btn{padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .18s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-navy{background:var(--navy);color:#fff}.btn-navy:hover:not(:disabled){background:var(--navy-l)}
+.btn-gold{background:var(--gold);color:var(--navy)}.btn-gold:hover:not(:disabled){background:var(--gold-l)}
+.btn-out{background:var(--white);color:var(--navy);border:1.5px solid var(--navy)}.btn-out:hover:not(:disabled){background:var(--navy);color:#fff}
+.btn-red{background:var(--occ);color:#fff}.btn-red:hover:not(:disabled){background:#a93226}
+.btn-grn{background:var(--vac);color:#fff}.btn-grn:hover:not(:disabled){background:#145d33}
+.btn-sm{padding:5px 12px;font-size:12px}.btn-xs{padding:3px 8px;font-size:11px}
+
+/* ── CONTROL BAR ── */
+.cbar{display:flex;align-items:center;justify-content:space-between;background:var(--white);border:1px solid var(--border);border-radius:var(--rl);padding:14px 22px;margin-bottom:22px;gap:14px;flex-wrap:wrap;box-shadow:var(--sh)}
+.dg{display:flex;align-items:center;gap:10px}
+.dg label{font-size:11px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.5px}
+.di{border:1.5px solid var(--border);border-radius:var(--r);padding:7px 12px;font-size:13px;font-family:inherit;color:var(--td);background:var(--surface);transition:border-color .2s}
+.di:focus{outline:none;border-color:var(--navy-l);background:var(--white)}
+
+/* ── SUMMARY CARDS ── */
+.sum-row{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-bottom:22px}
+.sc{background:var(--white);border-radius:var(--rl);padding:16px 18px;border:1px solid var(--border);box-shadow:var(--sh);position:relative;overflow:hidden}
+.sc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+.sc.tot::before{background:var(--navy)}.sc.occ-c::before{background:var(--occ)}.sc.vac-c::before{background:var(--vac)}
+.sc.vip-c::before{background:var(--vip)}.sc.sng-c::before{background:#0891b2}.sc.dbl-c::before{background:#059669}.sc.mnt-c::before{background:var(--mnt)}
+.sc-lbl{font-size:10px;font-weight:700;color:var(--tl);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.sc-num{font-size:28px;font-weight:800;line-height:1;color:var(--td)}
+.sc.occ-c .sc-num{color:var(--occ)}.sc.vac-c .sc-num{color:var(--vac)}.sc.vip-c .sc-num{color:var(--vip)}
+.sc-sub{font-size:10px;color:var(--tl);margin-top:4px}
+.sc-icon{position:absolute;right:14px;top:14px;font-size:22px;opacity:.13}
+
+/* ── AVAILABILITY MATRIX ── */
+.avail-matrix{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.am-card{background:var(--white);border-radius:var(--rl);padding:16px;border:1px solid var(--border);box-shadow:var(--sh)}
+.am-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.am-title{font-size:13px;font-weight:700;color:var(--td)}
+.am-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px}
+.am-badge.vip{background:var(--vip-bg);color:var(--vip)}
+.am-badge.sng{background:#e0f2fe;color:#0369a1}.am-badge.dbl{background:#d1fae5;color:#065f46}
+.bar-wrap{height:7px;background:var(--surface);border-radius:10px;overflow:hidden;margin-bottom:8px}
+.bar-fill{height:100%;border-radius:10px;transition:width .5s ease}
+.bar-fill.vip{background:var(--vip)}.bar-fill.sng{background:#0891b2}.bar-fill.dbl{background:#059669}.bar-fill.full{background:var(--occ)}
+.am-stats{display:flex;justify-content:space-between;font-size:11px;color:var(--tm)}
+.am-warn{font-size:11px;color:var(--occ);font-weight:700;margin-top:6px}
+
+/* ── FLOOR / ROOM GRID ── */
+.floor-section{margin-bottom:22px}
+.floor-hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.floor-label{font-size:12px;font-weight:800;background:var(--navy);color:#fff;padding:4px 12px;border-radius:20px}
+.floor-sub{font-size:12px;color:var(--tl)}
+.room-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.rc{border-radius:10px;padding:13px 11px;cursor:pointer;border:2px solid transparent;transition:all .18s;position:relative;min-height:108px}
+.rc:hover{transform:translateY(-2px);box-shadow:var(--shl)}
+.rc.vac{background:var(--vac-bg);border-color:var(--vac-br)}.rc.occ{background:var(--occ-bg);border-color:var(--occ-br)}
+.rc.maint{background:var(--mnt-bg);border-color:var(--mnt-br)}.rc.vip-r{background:var(--vip-bg);border-color:var(--vip-br)}
+.rc.vip-r.occ{background:#ede9fe;border-color:#a78bfa}
+.rn{font-size:17px;font-weight:800;margin-bottom:2px}
+.rc.vac .rn{color:var(--vac)}.rc.occ .rn{color:var(--occ)}.rc.maint .rn{color:var(--mnt)}
+.rc.vip-r .rn{color:var(--vip)}.rc.vip-r.occ .rn{color:var(--occ)}
+.rt{font-size:9px;font-weight:700;background:rgba(0,0,0,.07);border-radius:4px;padding:2px 5px;display:inline-block;margin-bottom:7px}
+.rs{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.rc.vac .rs{color:var(--vac)}.rc.occ .rs{color:var(--occ)}.rc.maint .rs{color:var(--mnt)}
+.rc.vip-r .rs{color:var(--vip)}.rc.vip-r.occ .rs{color:var(--occ)}
+.rg{font-size:10px;color:var(--tm);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rd{font-size:9px;color:var(--tl);margin-top:1px}
+.rf{position:absolute;top:6px;right:8px;font-size:9px;color:var(--tl);font-weight:600}
+.swap-badge{position:absolute;bottom:6px;left:8px;font-size:9px;background:#fef3c7;color:#92400e;border-radius:3px;padding:1px 5px;font-weight:700}
+.qbook{position:absolute;bottom:6px;right:7px;background:var(--navy);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:9px;font-weight:700;cursor:pointer;opacity:0;transition:opacity .15s}
+.rc.vac:hover .qbook{opacity:1}
+
+/* ── LEGEND ── */
+.legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tm)}
+.ld{width:10px;height:10px;border-radius:3px}
+.ld.vac{background:var(--vac)}.ld.occ{background:var(--occ)}.ld.vip{background:var(--vip)}.ld.mnt{background:var(--mnt)}
+
+/* ── TABLES ── */
+.tc{background:var(--white);border-radius:var(--rl);border:1px solid var(--border);box-shadow:var(--sh);overflow:hidden;margin-bottom:20px}
+.th{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.th-title{font-size:14px;font-weight:700;color:var(--td)}
+table{width:100%;border-collapse:collapse}
+thead th{background:#f0f3f9;font-size:10px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;text-align:left;border-bottom:1px solid var(--border)}
+tbody tr{border-bottom:1px solid #f0f3f9;transition:background .12s}
+tbody tr:hover{background:#f7f9fd}
+tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
+.nd{text-align:center;padding:40px;color:var(--tl);font-size:13px}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700}
+.b-conf{background:#dbeafe;color:#1e40af}.b-in{background:var(--occ-bg);color:var(--occ)}
+.b-out{background:#f0fdf4;color:#166534}.b-can{background:#f5f5f5;color:#6b7280}
+.b-emp{background:#dcfce7;color:#166534}.b-vend{background:#fef9c3;color:#854d0e}.b-comp{background:#f0f0ff;color:#4338ca}
+.b-vip2{background:var(--vip-bg);color:var(--vip)}.b-swap{background:#fef3c7;color:#92400e}
+.si{border:1.5px solid var(--border);border-radius:var(--r);padding:6px 12px;font-size:12px;font-family:inherit;transition:border-color .2s}
+.si:focus{outline:none;border-color:var(--navy-l)}
+.ab{display:flex;gap:5px;flex-wrap:wrap}
+
+/* ── MODAL ── */
+.mo{display:none;position:fixed;inset:0;background:rgba(10,20,40,.55);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.mo.open{display:flex}
+.md{background:var(--white);border-radius:var(--rl);width:620px;max-width:95vw;max-height:92vh;overflow-y:auto;box-shadow:var(--shl);padding:28px;animation:su .22s ease}
+.md-lg{width:760px}
+@keyframes su{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.mt{font-size:17px;font-weight:800;color:var(--navy);margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid var(--gold);display:flex;align-items:center;gap:9px}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fgr{display:flex;flex-direction:column;gap:4px}.fgr.full{grid-column:1/-1}
+.fl{font-size:10px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.4px}
+.fc{border:1.5px solid var(--border);border-radius:var(--r);padding:8px 12px;font-size:13px;font-family:inherit;transition:border-color .2s;background:var(--white)}
+.fc:focus{outline:none;border-color:var(--navy-l);background:#f8faff}
+.mf{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.swap-box{background:#fffbeb;border:1.5px solid #f6d860;border-radius:var(--r);padding:14px;margin-top:14px}
+.swap-box h4{font-size:12px;font-weight:700;color:#92400e;margin-bottom:10px}
+
+/* ── USER MANAGEMENT ── */
+.user-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.user-row:last-child{border-bottom:none}
+.user-av-sm{width:32px;height:32px;border-radius:50%;background:var(--navy-l);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.user-info{flex:1}
+.user-name{font-size:13px;font-weight:700;color:var(--td)}
+.user-email{font-size:11px;color:var(--tl)}
+
+/* ── IO ── */
+.io-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px}
+.io-card{background:var(--white);border-radius:var(--rl);border:1px solid var(--border);padding:22px;box-shadow:var(--sh)}
+.io-card h3{font-size:13px;font-weight:700;margin-bottom:5px}
+.io-card p{font-size:11px;color:var(--tl);margin-bottom:14px;line-height:1.6}
+.dz{border:2px dashed var(--border);border-radius:var(--r);padding:22px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface)}
+.dz:hover,.dz.dov{border-color:var(--navy-l);background:#edf2ff}
+.ex-opts{display:flex;flex-direction:column;gap:10px}
+.ex-row{padding:12px;background:var(--surface);border-radius:var(--r);border:1px solid var(--border)}
+.ex-row-t{font-size:12px;font-weight:700;margin-bottom:3px}.ex-row-s{font-size:11px;color:var(--tl);margin-bottom:8px}
+
+/* ── SETTINGS ── */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.scard{background:var(--white);border-radius:var(--rl);border:1px solid var(--border);padding:22px;box-shadow:var(--sh)}
+.scard h3{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:14px}
+.divider{height:1px;background:var(--border);margin:14px 0}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--navy);color:#fff;padding:12px 18px;border-radius:var(--r);font-size:13px;box-shadow:var(--shl);display:none;max-width:300px;border-left:4px solid var(--gold)}
+.toast.show{display:block;animation:fi .2s ease}
+.toast.ok{border-left-color:var(--vac)}.toast.er{border-left-color:var(--occ)}.toast.inf{border-left-color:var(--gold)}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+@media(max-width:1100px){.sum-row{grid-template-columns:repeat(4,1fr)}.room-grid{grid-template-columns:repeat(5,1fr)}.avail-matrix{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:750px){.room-grid{grid-template-columns:repeat(3,1fr)}.sum-row{grid-template-columns:repeat(2,1fr)}.fg{grid-template-columns:1fr}.io-grid{grid-template-columns:1fr}.sg{grid-template-columns:1fr}}
+@media print{.nav,.hdr .hdr-r,.cbar .btn,.mo,.toast,#loadOverlay,#authScreen,#accessDenied{display:none!important}.main{padding:0}}
+</style>
+</head>
+<body>
+
+<!-- ══ LOADING ══ -->
+<div id="loadOverlay">
+  <div class="load-logo">GH</div>
+  <div class="load-text">GAIL Guest House — Vijaipur</div>
+  <div class="load-sub">Connecting to database...</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">GH</div>
+    <div class="auth-title">GAIL Guest House</div>
+    <div class="auth-sub">Vijaipur Room Management System<br>Sign in with your authorised Google account to continue.</div>
+    <button class="google-btn" onclick="signInGoogle()">
+      <svg class="google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="auth-err" id="authErr">Access denied. Your account is not authorised. Contact the admin.</div>
+    <div class="auth-notice">Only accounts approved by GAIL administration can access this system.<br>Contact the admin if you need access.</div>
+  </div>
+</div>
+
+<!-- ══ ACCESS DENIED ══ -->
+<div id="accessDenied">
+  <div class="denied-card">
+    <div class="denied-icon">🔒</div>
+    <div class="denied-title">Access Not Yet Approved</div>
+    <div class="denied-sub">You signed in successfully with Google, but your account has not been approved by the administrator yet.<br><br>Share your User ID below with the Admin (<strong>SKG</strong>) to get access.</div>
+    <div class="uid-box" id="deniedUid">—</div>
+    <button class="btn btn-out" onclick="copyUid()">📋 Copy User ID</button>
+    <div style="margin-top:14px"><button class="btn btn-red btn-sm" onclick="signOutUser()">Sign Out</button></div>
+  </div>
+</div>
+
+<!-- ══ HEADER ══ -->
+<header class="hdr" id="appHdr" style="display:none">
+  <div class="hdr-l">
+    <div class="hdr-logo">GH</div>
+    <div class="hdr-title">
+      <h1>GAIL Guest House — Vijaipur</h1>
+      <p><span class="sync-dot" id="syncDot"></span><span id="syncLabel">Connected</span></p>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <div class="clock-blk"><span id="lDate">—</span><span id="lTime" style="font-size:10px;color:rgba(255,255,255,.55)">—</span></div>
+    <img class="user-av" id="userAv" src="" alt="U">
+    <div style="line-height:1.4">
+      <div style="font-size:12px;font-weight:600" id="userName">—</div>
+      <span class="role-chip r-admin" id="roleChip">—</span>
+    </div>
+    <button class="btn btn-out btn-sm" onclick="signOutUser()" style="border-color:rgba(255,255,255,.3);color:#fff">Sign Out</button>
+  </div>
+</header>
+
+<!-- ══ NAV ══ -->
+<nav class="nav" id="appNav" style="display:none">
+  <button class="nav-t active" onclick="sw('dashboard')">🏠 Dashboard</button>
+  <button class="nav-t" onclick="sw('bookings')">📋 Reservations</button>
+  <button class="nav-t" onclick="sw('swap')">🔄 Swap Log</button>
+  <button class="nav-t" onclick="sw('reports')">📊 Reports</button>
+  <button class="nav-t" onclick="sw('io')">↕ Import / Export</button>
+  <button class="nav-t admin-only" onclick="sw('users')" style="display:none">👥 Users</button>
+  <button class="nav-t admin-only" onclick="sw('settings')" style="display:none">⚙ Settings</button>
+</nav>
+
+<!-- ══ MAIN APP ══ -->
+<div class="main" id="appMain" style="display:none">
+
+<!-- ─── DASHBOARD ─── -->
+<div id="s-dashboard" class="screen active">
+  <div class="cbar">
+    <div class="dg">
+      <label>Date</label>
+      <input type="date" class="di" id="vDate" onchange="refDash()">
+      <button class="btn btn-out btn-sm" onclick="setToday()">Today</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-gold" id="newResBtn" onclick="openBkMo()" style="display:none">＋ New Reservation</button>
+      <button class="btn btn-out btn-sm" onclick="window.print()">🖨 Print</button>
+    </div>
+  </div>
+
+  <div class="sum-row">
+    <div class="sc tot"><div class="sc-lbl">Total Rooms</div><div class="sc-num">28</div><div class="sc-sub">All rooms</div><div class="sc-icon">🏢</div></div>
+    <div class="sc occ-c"><div class="sc-lbl">Occupied</div><div class="sc-num" id="sOcc">0</div><div class="sc-sub">rooms in use</div><div class="sc-icon">🔴</div></div>
+    <div class="sc vac-c"><div class="sc-lbl">Vacant</div><div class="sc-num" id="sVac">28</div><div class="sc-sub">available</div><div class="sc-icon">🟢</div></div>
+    <div class="sc vip-c"><div class="sc-lbl">VIP Occ.</div><div class="sc-num" id="sVip">0</div><div class="sc-sub">of 4 VIP rooms</div><div class="sc-icon">👑</div></div>
+    <div class="sc sng-c"><div class="sc-lbl">Single Bed Occ.</div><div class="sc-num" id="sSng">0</div><div class="sc-sub">of 10 rooms</div><div class="sc-icon">🛏</div></div>
+    <div class="sc dbl-c"><div class="sc-lbl">Double Bed Occ.</div><div class="sc-num" id="sDbl">0</div><div class="sc-sub">of 14 rooms</div><div class="sc-icon">🛏</div></div>
+    <div class="sc mnt-c"><div class="sc-lbl">Maintenance</div><div class="sc-num" id="sMnt">0</div><div class="sc-sub">under service</div><div class="sc-icon">🔧</div></div>
+  </div>
+
+  <div style="font-size:13px;font-weight:700;color:var(--td);margin-bottom:12px">Category Availability — <span id="availDateLabel" style="color:var(--navy-l)"></span></div>
+  <div class="avail-matrix" id="availMatrix"></div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700">Room-wise Status</div>
+    <div class="legend">
+      <div class="li"><div class="ld vac"></div>Vacant</div>
+      <div class="li"><div class="ld occ"></div>Occupied</div>
+      <div class="li"><div class="ld vip"></div>VIP</div>
+      <div class="li"><div class="ld mnt"></div>Maintenance</div>
+    </div>
+  </div>
+  <div id="floorGrid"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
+    <div class="tc"><div class="th"><div class="th-title">🟡 Today's Check-ins</div></div>
+      <table><thead><tr><th>Room</th><th>Guest</th><th>Category</th><th>Payment</th><th>Action</th></tr></thead>
+      <tbody id="todayIn"></tbody></table></div>
+    <div class="tc"><div class="th"><div class="th-title">🟠 Today's Check-outs</div></div>
+      <table><thead><tr><th>Room</th><th>Guest</th><th>Nights</th><th>Action</th></tr></thead>
+      <tbody id="todayOut"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ─── RESERVATIONS ─── -->
+<div id="s-bookings" class="screen">
+  <div class="tc">
+    <div class="th">
+      <div class="th-title">All Reservations <span id="resCount" style="font-size:11px;color:var(--tl)"></span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input class="si" placeholder="🔍 Guest / Room / ID..." id="srch" oninput="renderTable()" style="width:180px">
+        <select class="si" id="sfStat" onchange="renderTable()"><option value="">All Status</option><option>Confirmed</option><option>Checked-In</option><option>Checked-Out</option><option>Cancelled</option></select>
+        <select class="si" id="sfPay" onchange="renderTable()"><option value="">All Payment</option><option>Self Payment - Employee</option><option>Self Payment - Vendor</option><option>Company Guest</option></select>
+        <select class="si" id="sfCat" onchange="renderTable()"><option value="">All Categories</option><option>VIP</option><option>Single Bed</option><option>Double Bed</option></select>
+        <button class="btn btn-gold btn-sm" id="newResBtn2" onclick="openBkMo()" style="display:none">＋ New</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Res. ID</th><th>Allotted</th><th>Actual</th><th>Guest</th><th>Contact</th><th>Check-In</th><th>Check-Out</th><th>Nts</th><th>Category</th><th>Payment</th><th>Status</th><th>By</th><th>Actions</th></tr></thead>
+        <tbody id="bBody"><tr><td colspan="13" class="nd">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SWAP LOG ─── -->
+<div id="s-swap" class="screen">
+  <div class="tc">
+    <div class="th"><div class="th-title">🔄 Room Swap / Allotment Change Log</div><div style="font-size:11px;color:var(--tl)">All cases where actual room differed from allotted room</div></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Date</th><th>Res. ID</th><th>Guest</th><th>Allotted Room</th><th>Actual Room</th><th>Reason</th><th>Changed By</th><th>Time</th></tr></thead>
+        <tbody id="swapBody"><tr><td colspan="8" class="nd">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ─── REPORTS ─── -->
+<div id="s-reports" class="screen">
+  <div class="cbar">
+    <div class="dg">
+      <label>From</label><input type="date" class="di" id="rFrom">
+      <label>To</label><input type="date" class="di" id="rTo">
+      <button class="btn btn-navy btn-sm" onclick="genRpt()">Generate</button>
+    </div>
+    <button class="btn btn-out btn-sm" onclick="expRpt()">⬇ Export Report</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+    <div class="sc tot"><div class="sc-lbl">Total Bookings</div><div class="sc-num" id="rTot">—</div></div>
+    <div class="sc sng-c"><div class="sc-lbl">Guest Nights</div><div class="sc-num" id="rNts">—</div></div>
+    <div class="sc vip-c"><div class="sc-lbl">VIP Stays</div><div class="sc-num" id="rVip">—</div></div>
+    <div class="sc mnt-c"><div class="sc-lbl">Swaps</div><div class="sc-num" id="rSwp">—</div></div>
+    <div class="sc dbl-c"><div class="sc-lbl">Avg Occupancy</div><div class="sc-num" id="rAvg">—</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="payBreak"></div>
+  <div class="tc">
+    <div class="th"><div class="th-title">Reservations in Period</div></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Res.ID</th><th>Allotted</th><th>Actual</th><th>Guest</th><th>Check-In</th><th>Check-Out</th><th>Nts</th><th>Category</th><th>Payment</th><th>Status</th></tr></thead>
+        <tbody id="rBody"><tr><td colspan="10" class="nd">Select date range and click Generate</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ─── IMPORT / EXPORT ─── -->
+<div id="s-io" class="screen">
+  <div class="io-grid">
+    <div class="io-card">
+      <h3>📥 Import from Excel</h3>
+      <p>Upload .xlsx or .csv. Required columns: RoomNumber, GuestName, GuestContact, CheckInDate, CheckOutDate, Category, PaymentType, Status, BookedBy, Remarks</p>
+      <div class="dz" id="dz" onclick="document.getElementById('fi').click()" ondragover="dvOv(event)" ondragleave="dvLv()" ondrop="dvDr(event)">
+        <div style="font-size:26px;margin-bottom:6px">📂</div>
+        <div style="font-size:11px;color:var(--tl)">Drop file here or <strong style="color:var(--navy-l);cursor:pointer">Browse</strong></div>
+      </div>
+      <input type="file" id="fi" accept=".xlsx,.csv" onchange="doImport(event)" style="display:none">
+      <div id="impPrev" style="margin-top:12px"></div>
+    </div>
+    <div class="io-card">
+      <h3>📤 Export to Excel</h3>
+      <p>Download your data as Excel files for records, reporting, or sharing with management.</p>
+      <div class="ex-opts">
+        <div class="ex-row"><div class="ex-row-t">All Reservations</div><div class="ex-row-s">Complete reservation history</div><button class="btn btn-grn btn-sm" onclick="expAll()">⬇ All Reservations</button></div>
+        <div class="ex-row"><div class="ex-row-t">Today's Room Status</div><div class="ex-row-s">Snapshot of all 28 rooms</div><button class="btn btn-navy btn-sm" onclick="expToday()">⬇ Today's Status</button></div>
+        <div class="ex-row">
+          <div class="ex-row-t">Custom Range</div>
+          <div style="display:flex;gap:7px;align-items:center;margin-bottom:8px">
+            <input type="date" id="exFrom" class="di" style="font-size:11px;padding:5px 9px">
+            <span style="font-size:11px">to</span>
+            <input type="date" id="exTo" class="di" style="font-size:11px;padding:5px 9px">
+          </div>
+          <button class="btn btn-gold btn-sm" onclick="expRange()">⬇ Download</button>
+        </div>
+        <div class="ex-row"><div class="ex-row-t">Swap Log</div><div class="ex-row-s">All room swap records</div><button class="btn btn-out btn-sm" onclick="expSwaps()">⬇ Swap Log</button></div>
+        <div class="ex-row"><div class="ex-row-t">Import Template</div><div class="ex-row-s">Blank template with correct headers</div><button class="btn btn-out btn-sm" onclick="dlTpl()">⬇ Template</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── USER MANAGEMENT (Admin only) ─── -->
+<div id="s-users" class="screen">
+  <div class="tc">
+    <div class="th">
+      <div class="th-title">👥 Approved Users</div>
+      <button class="btn btn-gold btn-sm" onclick="openAddUser()">＋ Add User</button>
+    </div>
+    <div id="userList" style="padding:0 20px 8px"></div>
+  </div>
+  <div class="tc" style="margin-top:20px">
+    <div class="th"><div class="th-title">⏳ Pending Access Requests</div><div style="font-size:11px;color:var(--tl)">Users who signed in but are not yet approved</div></div>
+    <div id="pendingList" style="padding:0 20px 8px"><div class="nd">No pending requests</div></div>
+  </div>
+</div>
+
+<!-- ─── SETTINGS (Admin only) ─── -->
+<div id="s-settings" class="screen">
+  <div class="sg">
+    <div class="scard">
+      <h3>🏨 Room Configuration</h3>
+      <div style="font-size:11px;color:var(--tl);margin-bottom:10px">Mark rooms as active or under maintenance.</div>
+      <div id="rmCfg" style="max-height:420px;overflow-y:auto"></div>
+      <div class="divider"></div>
+      <button class="btn btn-navy btn-sm" onclick="saveRmCfg()">Save Room Config</button>
+    </div>
+    <div class="scard">
+      <h3>🏢 Guest House Info</h3>
+      <div class="fgr" style="margin-bottom:10px"><label class="fl">Name</label><input type="text" class="fc" id="ghN" value="GAIL Guest House, Vijaipur"></div>
+      <div class="fgr" style="margin-bottom:10px"><label class="fl">Address</label><input type="text" class="fc" id="ghA" value="Vijaipur, Madhya Pradesh"></div>
+      <div class="fgr" style="margin-bottom:14px"><label class="fl">Admin Contact</label><input type="text" class="fc" id="ghC" placeholder="Phone / Email"></div>
+      <button class="btn btn-navy btn-sm" onclick="saveGH()">Save Info</button>
+      <div class="divider"></div>
+      <div style="font-size:11px;color:var(--tl);line-height:1.8">
+        <strong>System Info</strong><br>
+        Total Rooms: 28 &nbsp;|&nbsp; VIP: 4 &nbsp;|&nbsp; Single Bed: 10 &nbsp;|&nbsp; Double Bed: 14<br>
+        Database: Firebase Firestore &nbsp;|&nbsp; Auth: Google SSO<br>
+        Hosting: GitHub Pages
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end .main -->
+
+<!-- BOOKING MODAL -->
+<div class="mo" id="bkMo">
+<div class="md md-lg">
+  <div class="mt" id="bkTitle">📝 New Reservation</div>
+  <div class="fg">
+    <input type="hidden" id="eid">
+    <div class="fgr full"><label class="fl">Room Category *</label>
+      <select class="fc" id="fCat" onchange="filterRoomsByCat()">
+        <option value="">-- Select Category --</option>
+        <option>VIP</option><option>Single Bed</option><option>Double Bed</option>
+      </select>
+    </div>
+    <div class="fgr"><label class="fl">Allot Room *</label><select class="fc" id="fRoom"><option value="">Select category first</option></select></div>
+    <div class="fgr"><label class="fl">Guest Name *</label><input type="text" class="fc" id="fGuest" placeholder="Full name"></div>
+    <div class="fgr"><label class="fl">Contact No.</label><input type="text" class="fc" id="fCont" placeholder="Mobile / Email"></div>
+    <div class="fgr"><label class="fl">Designation / Dept</label><input type="text" class="fc" id="fDesig" placeholder="e.g. Manager, HR"></div>
+    <div class="fgr"><label class="fl">Company / Unit</label><input type="text" class="fc" id="fComp" placeholder="e.g. GAIL HQ, Noida"></div>
+    <div class="fgr"><label class="fl">Check-In Date *</label><input type="date" class="fc" id="fIn"></div>
+    <div class="fgr"><label class="fl">Check-Out Date *</label><input type="date" class="fc" id="fOut"></div>
+    <div class="fgr"><label class="fl">Payment Type *</label>
+      <select class="fc" id="fPay">
+        <option>Self Payment - Employee</option>
+        <option>Self Payment - Vendor</option>
+        <option>Company Guest</option>
+      </select>
+    </div>
+    <div class="fgr"><label class="fl">Status</label>
+      <select class="fc" id="fStat"><option>Confirmed</option><option>Checked-In</option><option>Checked-Out</option><option>Cancelled</option></select>
+    </div>
+    <div class="fgr"><label class="fl">Booked By</label><input type="text" class="fc" id="fBy" placeholder="Your name"></div>
+    <div class="fgr full"><label class="fl">Remarks</label><textarea class="fc" id="fRem" rows="2" placeholder="Special requirements..."></textarea></div>
+  </div>
+  <div class="mf"><button class="btn btn-out" onclick="closeBkMo()">Cancel</button><button class="btn btn-gold" onclick="saveRes()">💾 Save Reservation</button></div>
+</div>
+</div>
+
+<!-- ROOM DETAIL MODAL -->
+<div class="mo" id="rdMo">
+<div class="md">
+  <div class="mt" id="rdTitle">Room Details</div>
+  <div id="rdContent"></div>
+  <div class="swap-box" id="swapBox" style="display:none">
+    <h4>🔄 Record Actual Room Given (Different from Allotted)</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="fgr"><label class="fl">Actual Room Given</label><select class="fc" id="swRoom"></select></div>
+      <div class="fgr"><label class="fl">Reason *</label>
+        <select class="fc" id="swReason">
+          <option>Guest preference</option><option>Room not ready</option><option>Maintenance issue</option>
+          <option>Supervisor discretion</option><option>Upgrade</option><option>Downgrade - Full</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="fgr" style="margin-bottom:10px"><label class="fl">Notes</label><input type="text" class="fc" id="swNote" placeholder="Optional..."></div>
+    <button class="btn btn-gold btn-sm" onclick="saveSwap()">Record Swap</button>
+  </div>
+  <div class="mf"><button class="btn btn-out" onclick="closeRdMo()">Close</button><button class="btn btn-gold" id="rdBkBtn" style="display:none">Book This Room</button></div>
+</div>
+</div>
+
+<!-- ADD USER MODAL -->
+<div class="mo" id="addUserMo">
+<div class="md">
+  <div class="mt">➕ Add Approved User</div>
+  <div class="fg">
+    <div class="fgr full"><label class="fl">User ID (UID) *</label><input type="text" class="fc" id="auUid" placeholder="Paste Firebase UID from the denied screen"></div>
+    <div class="fgr"><label class="fl">Name *</label><input type="text" class="fc" id="auName" placeholder="Full name"></div>
+    <div class="fgr"><label class="fl">Email</label><input type="text" class="fc" id="auEmail" placeholder="Email address"></div>
+    <div class="fgr full"><label class="fl">Role *</label>
+      <select class="fc" id="auRole">
+        <option value="viewer">👁 Viewer — Read-only (Vendor / Reporting)</option>
+        <option value="supervisor">🔑 Supervisor — Check-in/out + Room swap</option>
+        <option value="admin">🛡 Admin — Full access</option>
+      </select>
+    </div>
+  </div>
+  <div class="mf"><button class="btn btn-out" onclick="closeAddUser()">Cancel</button><button class="btn btn-gold" onclick="addUser()">Add User</button></div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     FIREBASE CONFIG — REPLACE THIS BLOCK WITH YOUR OWN
+     Get it from: Firebase Console → Project Settings → Your Apps → Web
+═══════════════════════════════════════════════════════ -->
+<script>
+const firebaseConfig = {
+  apiKey:            "AIzaSyCGZINIs_zzU-6on0kuSCaM1qQJ22ZIwPU",
+  authDomain:        "gail-vijaipur-guest-house.firebaseapp.com",
+  projectId:         "gail-vijaipur-guest-house",
+  storageBucket:     "gail-vijaipur-guest-house.firebasestorage.app",
+  messagingSenderId: "405304546163",
+  appId:             "1:405304546163:web:66f5082020d980f20eeb06"
+};
+</script>
+<!-- ═══ END FIREBASE CONFIG ═══ -->
+
+<script>
+// ══════════════════════════════════════════════════
+// ROOM MASTER (fixed, not in DB)
+// ══════════════════════════════════════════════════
+const ROOMS = [
+  {num:101,label:'VIP 101',cat:'VIP',floor:'G/F',beds:'VIP Suite'},
+  {num:102,label:'VIP 102',cat:'VIP',floor:'G/F',beds:'VIP Suite'},
+  {num:103,label:'103',cat:'Single Bed',floor:'G/F',beds:'2 Single Beds'},
+  {num:104,label:'104',cat:'Single Bed',floor:'G/F',beds:'2 Single Beds'},
+  {num:105,label:'105',cat:'Single Bed',floor:'G/F',beds:'2 Single Beds'},
+  {num:106,label:'106',cat:'Single Bed',floor:'G/F',beds:'2 Single Beds'},
+  {num:107,label:'107',cat:'Single Bed',floor:'G/F',beds:'2 Single Beds'},
+  {num:108,label:'108',cat:'Single Bed',floor:'G/F',beds:'2 Single Beds'},
+  {num:109,label:'109',cat:'Double Bed',floor:'G/F',beds:'1 King Size Bed'},
+  {num:110,label:'110',cat:'Double Bed',floor:'G/F',beds:'1 King Size Bed'},
+  {num:111,label:'111',cat:'Double Bed',floor:'G/F',beds:'1 King Size Bed'},
+  {num:112,label:'112',cat:'Double Bed',floor:'G/F',beds:'1 King Size Bed'},
+  {num:201,label:'VIP 201',cat:'VIP',floor:'F/F',beds:'VIP Suite'},
+  {num:202,label:'VIP 202',cat:'VIP',floor:'F/F',beds:'VIP Suite'},
+  {num:203,label:'203',cat:'Single Bed',floor:'F/F',beds:'2 Single Beds'},
+  {num:204,label:'204',cat:'Single Bed',floor:'F/F',beds:'2 Single Beds'},
+  {num:205,label:'205',cat:'Single Bed',floor:'F/F',beds:'2 Single Beds'},
+  {num:206,label:'206',cat:'Single Bed',floor:'F/F',beds:'2 Single Beds'},
+  {num:207,label:'207',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+  {num:208,label:'208',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+  {num:209,label:'209',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+  {num:210,label:'210',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+  {num:211,label:'211',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+  {num:212,label:'212',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+  {num:216,label:'216',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+  {num:217,label:'217',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+  {num:218,label:'218',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+  {num:219,label:'219',cat:'Double Bed',floor:'F/F',beds:'1 King Size Bed'},
+];
+const CAT_META={
+  'VIP':       {total:4,icon:'👑',barCls:'vip',badge:'vip'},
+  'Single Bed':{total:10,icon:'🛏',barCls:'sng',badge:'sng'},
+  'Double Bed':{total:14,icon:'🛏',barCls:'dbl',badge:'dbl'},
+};
+
+// ══════════════════════════════════════════════════
+// APP STATE
+// ══════════════════════════════════════════════════
+let db, auth;
+let curUser = null;    // Firebase user object
+let curRole = null;    // 'admin' | 'supervisor' | 'viewer'
+let curName = '';
+let reservations = [];
+let swapLog      = [];
+let roomStatus   = {};  // {num: 'active'|'maintenance'}
+let approvedUsers = [];
+let detailResId  = null;
+let unsubRes, unsubSwap; // Firestore listeners
+
+// ══════════════════════════════════════════════════
+// FIREBASE INIT
+// ══════════════════════════════════════════════════
+firebase.initializeApp(firebaseConfig);
+auth = firebase.auth();
+db   = firebase.firestore();
+
+// Offline persistence — so it works even if internet flickers
+db.enablePersistence().catch(()=>{});
+
+// ══════════════════════════════════════════════════
+// AUTH FLOW
+// ══════════════════════════════════════════════════
+auth.onAuthStateChanged(async user => {
+  hide('loadOverlay');
+  if (!user) {
+    showAuthScreen();
+    return;
+  }
+  // User signed in — check if approved
+  try {
+    const snap = await db.collection('approvedUsers').doc(user.uid).get();
+    if (!snap.exists) {
+      // Not approved yet — log to pendingUsers so admin can see
+      await db.collection('pendingUsers').doc(user.uid).set({
+        uid: user.uid,
+        email: user.email,
+        name: user.displayName,
+        photoURL: user.photoURL,
+        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge:true});
+      showAccessDenied(user.uid);
+      return;
+    }
+    const userData = snap.data();
+    curUser = user;
+    curRole = userData.role || 'viewer';
+    curName = userData.name || user.displayName;
+    launchApp();
+  } catch(e) {
+    showToast('Connection error. Check your internet.','er');
+    showAuthScreen();
+  }
+});
+
+function signInGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(e => {
+    document.getElementById('authErr').style.display = 'block';
+  });
+}
+
+function signOutUser() {
+  if(unsubRes) unsubRes();
+  if(unsubSwap) unsubSwap();
+  auth.signOut();
+}
+
+function showAuthScreen() {
+  hide('accessDenied'); hide('appHdr'); hide('appNav'); hide('appMain');
+  document.getElementById('authScreen').classList.add('show');
+}
+function showAccessDenied(uid) {
+  document.getElementById('authScreen').classList.remove('show');
+  hide('appHdr'); hide('appNav'); hide('appMain');
+  document.getElementById('deniedUid').textContent = uid;
+  document.getElementById('accessDenied').classList.add('show');
+}
+function copyUid() {
+  const uid = document.getElementById('deniedUid').textContent;
+  navigator.clipboard.writeText(uid).then(()=>showToast('UID copied!','ok'));
+}
+
+// ══════════════════════════════════════════════════
+// LAUNCH APP
+// ══════════════════════════════════════════════════
+function launchApp() {
+  document.getElementById('authScreen').classList.remove('show');
+  document.getElementById('accessDenied').classList.remove('show');
+  show('appHdr'); show('appNav'); show('appMain');
+
+  // Set user info in header
+  document.getElementById('userName').textContent = curName;
+  const av = document.getElementById('userAv');
+  if(curUser.photoURL) { av.src = curUser.photoURL; }
+  else { av.style.display='none'; }
+  const rc = document.getElementById('roleChip');
+  rc.textContent = curRole.charAt(0).toUpperCase()+curRole.slice(1);
+  rc.className = 'role-chip r-'+curRole;
+
+  // Show/hide role-based UI
+  const isAdmin = curRole==='admin';
+  const canEdit = isAdmin || curRole==='supervisor';
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin?'':'none');
+  document.querySelectorAll('#newResBtn,#newResBtn2').forEach(el=>el.style.display=isAdmin?'inline-flex':'none');
+
+  // Init dates
+  document.getElementById('vDate').value = tod();
+  document.getElementById('rFrom').value = new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().split('T')[0];
+  document.getElementById('rTo').value = tod();
+  document.getElementById('exFrom').value = tod();
+  document.getElementById('exTo').value = tod();
+
+  // Start Firestore real-time listeners
+  startListeners();
+
+  // Load room status
+  loadRoomStatus();
+
+  if(isAdmin) loadUsers();
+}
+
+// ══════════════════════════════════════════════════
+// REAL-TIME LISTENERS
+// ══════════════════════════════════════════════════
+function setSyncStatus(status) {
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLabel');
+  if(status==='ok')      { dot.className='sync-dot'; lbl.textContent='Connected — Live'; }
+  if(status==='syncing') { dot.className='sync-dot syncing'; lbl.textContent='Syncing...'; }
+  if(status==='error')   { dot.className='sync-dot error'; lbl.textContent='Connection error'; }
+}
+
+function startListeners() {
+  setSyncStatus('syncing');
+
+  unsubRes = db.collection('reservations')
+    .orderBy('createdAt','desc')
+    .onSnapshot(snap => {
+      reservations = snap.docs.map(d=>({id:d.id,...d.data()}));
+      setSyncStatus('ok');
+      refDash();
+      if(document.getElementById('s-bookings').classList.contains('active')) renderTable();
+    }, ()=>setSyncStatus('error'));
+
+  unsubSwap = db.collection('swapLog')
+    .orderBy('ts','desc')
+    .onSnapshot(snap => {
+      swapLog = snap.docs.map(d=>({id:d.id,...d.data()}));
+      if(document.getElementById('s-swap').classList.contains('active')) renderSwapLog();
+    }, ()=>{});
+}
+
+async function loadRoomStatus() {
+  const snap = await db.collection('roomStatus').get();
+  snap.docs.forEach(d=>{ roomStatus[parseInt(d.id)]=d.data().status||'active'; });
+  refDash();
+}
+
+// ══════════════════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════════════════
+function clk(){
+  const n=new Date();
+  document.getElementById('lDate').textContent=n.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',weekday:'short'});
+  document.getElementById('lTime').textContent=n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(clk,1000); clk();
+
+// ══════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════
+function sw(n){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-t').forEach(t=>t.classList.remove('active'));
+  document.getElementById('s-'+n).classList.add('active');
+  document.querySelectorAll('.nav-t').forEach(t=>{if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes("'"+n+"'"))t.classList.add('active');});
+  if(n==='dashboard') refDash();
+  if(n==='bookings'){renderTable();}
+  if(n==='swap') renderSwapLog();
+  if(n==='users') loadUsers();
+  if(n==='settings') renderSettings();
+}
+
+// ══════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════
+function tod(){ return new Date().toISOString().split('T')[0]; }
+function fD(d){ if(!d) return '—'; const p=d.split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d; }
+function nts(a,b){ if(!a||!b) return 0; return Math.max(0,Math.round((new Date(b)-new Date(a))/86400000)); }
+function isOcc(r,dt){ return ['Confirmed','Checked-In'].includes(r.status)&&r.checkIn<=dt&&r.checkOut>dt; }
+function roomOf(r){ return r.actualRoom||r.room; }
+function hide(id){ document.getElementById(id).style.display='none'; }
+function show(id){ document.getElementById(id).style.display=''; }
+function genId(){ return 'R'+Date.now().toString().slice(-7)+Math.floor(Math.random()*100); }
+
+// ══════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════
+function setToday(){ document.getElementById('vDate').value=tod(); refDash(); }
+
+function refDash(){
+  const dt=document.getElementById('vDate').value||tod();
+  document.getElementById('availDateLabel').textContent=fD(dt);
+  const active=reservations.filter(r=>isOcc(r,dt));
+  const occRooms={};
+  active.forEach(r=>{ occRooms[roomOf(r)]=r; });
+  const cats={'VIP':0,'Single Bed':0,'Double Bed':0};
+  active.forEach(r=>{ const m=ROOMS.find(x=>x.num===roomOf(r)); if(m)cats[m.cat]=(cats[m.cat]||0)+1; });
+  const mnt=ROOMS.filter(m=>(roomStatus[m.num]||'active')==='maintenance').length;
+  const occ=active.length;
+  document.getElementById('sOcc').textContent=occ;
+  document.getElementById('sVac').textContent=Math.max(0,28-occ-mnt);
+  document.getElementById('sVip').textContent=cats['VIP'];
+  document.getElementById('sSng').textContent=cats['Single Bed'];
+  document.getElementById('sDbl').textContent=cats['Double Bed'];
+  document.getElementById('sMnt').textContent=mnt;
+  renderAvailMatrix(cats);
+  renderFloorGrid(dt,occRooms);
+  renderMovements(dt);
+}
+
+function renderAvailMatrix(cats){
+  document.getElementById('availMatrix').innerHTML=Object.entries(CAT_META).map(([cat,m])=>{
+    const occ=cats[cat]||0; const avail=m.total-occ; const pct=Math.round((occ/m.total)*100);
+    const warn=avail===0?'<div class="am-warn">⚠ FULL — No rooms available!</div>':avail===1?'<div class="am-warn">⚠ Only 1 room left!</div>':'';
+    return `<div class="am-card"><div class="am-head"><div class="am-title">${m.icon} ${cat}</div><span class="am-badge ${m.badge}">${avail} free</span></div>
+      <div class="bar-wrap"><div class="bar-fill ${pct>=100?'full':m.barCls}" style="width:${pct}%"></div></div>
+      <div class="am-stats"><span>${occ} occupied</span><span>${m.total} total</span><span>${pct}% full</span></div>${warn}</div>`;
+  }).join('');
+}
+
+function renderFloorGrid(dt,occRooms){
+  const gf=ROOMS.filter(r=>r.floor==='G/F'), ff=ROOMS.filter(r=>r.floor==='F/F');
+  const canBook=curRole==='admin';
+  const canAction=curRole==='admin'||curRole==='supervisor';
+  const mkGrid=rooms=>rooms.map(rm=>{
+    const res=occRooms[rm.num]; const isMnt=(roomStatus[rm.num]||'active')==='maintenance';
+    const isVip=rm.cat==='VIP';
+    let cls=isMnt?'maint':res?'occ':'vac'; if(isVip&&!isMnt)cls+=' vip-r';
+    const st=isMnt?'🔧 Maint.':res?'🔴 Occupied':'🟢 Vacant';
+    const hasSwap=res&&res.actualRoom&&res.actualRoom!==res.room;
+    return `<div class="rc ${cls}" onclick="showRoomDetail(${rm.num})">
+      <div class="rf">${rm.floor}</div><div class="rn">${rm.label}</div>
+      <span class="rt">${rm.beds}</span><div class="rs">${st}</div>
+      ${res?`<div class="rg">${res.guest||''}</div><div class="rd">Out: ${fD(res.checkOut)}</div>`:''}
+      ${hasSwap?`<div class="swap-badge">⇄ Swapped</div>`:''}
+      ${!res&&!isMnt&&canBook?`<button class="qbook" onclick="event.stopPropagation();qBook(${rm.num})">+ Book</button>`:''}
+    </div>`;
+  }).join('');
+  document.getElementById('floorGrid').innerHTML=
+    `<div class="floor-section"><div class="floor-hdr"><span class="floor-label">Ground Floor (G/F)</span><span class="floor-sub">${gf.length} rooms — VIP 101,102 · Single 103-108 · Double 109-112</span></div><div class="room-grid">${mkGrid(gf)}</div></div>
+     <div class="floor-section"><div class="floor-hdr"><span class="floor-label">First Floor (F/F)</span><span class="floor-sub">${ff.length} rooms — VIP 201,202 · Single 203-206 · Double 207-212, 216-219</span></div><div class="room-grid">${mkGrid(ff)}</div></div>`;
+}
+
+function renderMovements(dt){
+  const arr=reservations.filter(r=>r.checkIn===dt&&r.status!=='Cancelled');
+  const dep=reservations.filter(r=>r.checkOut===dt&&['Confirmed','Checked-In','Checked-Out'].includes(r.status));
+  const pm={'Self Payment - Employee':'b-emp','Self Payment - Vendor':'b-vend','Company Guest':'b-comp'};
+  const canAction=curRole==='admin'||curRole==='supervisor';
+  const mkIn=l=>l.length?l.map(r=>`<tr>
+    <td><strong>${r.actualRoom||r.room}</strong>${r.actualRoom&&r.actualRoom!==r.room?` <span style="font-size:9px;color:var(--tl)">(allot:${r.room})</span>`:''}</td>
+    <td>${r.guest}</td><td><span class="badge b-vip2">${r.cat||'—'}</span></td>
+    <td><span class="badge ${pm[r.payType]||'b-conf'}" style="font-size:9px">${r.payType||'—'}</span></td>
+    <td>${canAction?`<button class="btn btn-grn btn-xs" onclick="chStat('${r.id}','Checked-In')">Check In</button>`:''}</td>
+  </tr>`).join(''):'<tr><td colspan="5" class="nd">None today</td></tr>';
+  const mkOut=l=>l.length?l.map(r=>`<tr>
+    <td><strong>${r.actualRoom||r.room}</strong></td><td>${r.guest}</td><td>${nts(r.checkIn,r.checkOut)}</td>
+    <td>${canAction?`<button class="btn btn-navy btn-xs" onclick="chStat('${r.id}','Checked-Out')">Check Out</button>`:''}</td>
+  </tr>`).join(''):'<tr><td colspan="4" class="nd">None today</td></tr>';
+  document.getElementById('todayIn').innerHTML=mkIn(arr);
+  document.getElementById('todayOut').innerHTML=mkOut(dep);
+}
+
+// ══════════════════════════════════════════════════
+// ROOM DETAIL MODAL
+// ══════════════════════════════════════════════════
+function showRoomDetail(num){
+  const rm=ROOMS.find(m=>m.num===num);
+  const dt=document.getElementById('vDate').value||tod();
+  const cur=reservations.find(r=>isOcc(r,dt)&&roomOf(r)===num);
+  detailResId=cur?cur.id:null;
+  const hasSwap=cur&&cur.actualRoom&&cur.actualRoom!==cur.room;
+  const pm={'Self Payment - Employee':'b-emp','Self Payment - Vendor':'b-vend','Company Guest':'b-comp'};
+  let h=`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;font-size:12px">
+    <div><span style="color:var(--tl)">Category</span><br><strong>${rm.cat}</strong></div>
+    <div><span style="color:var(--tl)">Floor</span><br><strong>${rm.floor}</strong></div>
+    <div><span style="color:var(--tl)">Bed Type</span><br><strong>${rm.beds}</strong></div>
+    <div><span style="color:var(--tl)">Status</span><br><strong>${(roomStatus[num]||'active')==='maintenance'?'🔧 Maintenance':cur?'🔴 Occupied':'🟢 Vacant'}</strong></div>
+  </div>`;
+  if(cur){
+    h+=`<div style="background:var(--occ-bg);border:1px solid var(--occ-br);border-radius:var(--r);padding:12px;margin-bottom:12px;font-size:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--occ);margin-bottom:6px">CURRENT OCCUPANT</div>
+      <div style="font-weight:700;font-size:14px">${cur.guest}</div>
+      <div style="color:var(--tm);margin-top:2px">${cur.desig||''} · ${cur.comp||''}</div>
+      <div style="color:var(--tm);margin-top:2px">📞 ${cur.contact||'—'}</div>
+      <div style="margin-top:4px"><span class="badge ${pm[cur.payType]||'b-conf'}">${cur.payType||'—'}</span></div>
+      <div style="color:var(--tm);margin-top:5px">📅 ${fD(cur.checkIn)} → ${fD(cur.checkOut)} (${nts(cur.checkIn,cur.checkOut)} nights)</div>
+      ${hasSwap?`<div style="margin-top:5px;font-size:10px;color:var(--mnt);font-weight:700">⇄ Allotted: Rm ${cur.room} → Actual: Rm ${cur.actualRoom}</div>`:''}
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        ${curRole==='admin'?`<button class="btn btn-out btn-xs" onclick="editRes('${cur.id}');closeRdMo()">Edit</button>`:''}
+        ${curRole!=='viewer'?`<button class="btn btn-navy btn-xs" onclick="chStat('${cur.id}','Checked-Out');closeRdMo()">Check Out</button>`:''}
+      </div>
+    </div>`;
+  }
+  document.getElementById('rdTitle').textContent=`Room ${rm.label} — ${rm.cat} · ${rm.floor}`;
+  document.getElementById('rdContent').innerHTML=h;
+  const sb=document.getElementById('swapBox');
+  if(cur&&curRole!=='viewer'){
+    sb.style.display='block';
+    const sr=document.getElementById('swRoom');
+    sr.innerHTML=ROOMS.filter(m=>m.cat===rm.cat&&m.num!==num&&(roomStatus[m.num]||'active')!=='maintenance')
+      .map(m=>`<option value="${m.num}">${m.label} (${m.floor})</option>`).join('');
+  } else { sb.style.display='none'; }
+  const bb=document.getElementById('rdBkBtn');
+  if(!cur&&(roomStatus[num]||'active')!=='maintenance'&&curRole==='admin'){
+    bb.style.display='inline-flex'; bb.onclick=()=>{closeRdMo();qBook(num);}; 
+  } else { bb.style.display='none'; }
+  document.getElementById('rdMo').classList.add('open');
+}
+
+async function saveSwap(){
+  if(!detailResId){showToast('No active reservation.','er');return;}
+  const newRoom=parseInt(document.getElementById('swRoom').value);
+  const reason=document.getElementById('swReason').value;
+  const note=document.getElementById('swNote').value.trim();
+  const ri=reservations.findIndex(r=>r.id===detailResId);
+  if(ri<0) return;
+  const oldRoom=reservations[ri].actualRoom||reservations[ri].room;
+  setSyncStatus('syncing');
+  try{
+    await db.collection('reservations').doc(detailResId).update({actualRoom:newRoom,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    await db.collection('swapLog').add({
+      resId:detailResId, guest:reservations[ri].guest,
+      allottedRoom:reservations[ri].room, actualRoom:newRoom, prevActual:oldRoom,
+      reason, note, changedBy:curName, changedByUid:curUser.uid,
+      ts:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`Swap recorded: Room → ${newRoom}`,'ok');
+    closeRdMo();
+  } catch(e){ showToast('Error saving swap: '+e.message,'er'); }
+}
+function closeRdMo(){ document.getElementById('rdMo').classList.remove('open'); detailResId=null; }
+
+// ══════════════════════════════════════════════════
+// BOOKING MODAL
+// ══════════════════════════════════════════════════
+function filterRoomsByCat(){
+  const cat=document.getElementById('fCat').value;
+  const dt=document.getElementById('vDate').value||tod();
+  const fR=document.getElementById('fRoom');
+  if(!cat){ fR.innerHTML='<option value="">Select category first</option>'; return; }
+  const occupied=reservations.filter(r=>isOcc(r,dt)).map(r=>roomOf(r));
+  const available=ROOMS.filter(m=>m.cat===cat&&!occupied.includes(m.num)&&(roomStatus[m.num]||'active')!=='maintenance');
+  fR.innerHTML=available.length
+    ?available.map(m=>`<option value="${m.num}">${m.label} (${m.floor}) — ${m.beds}</option>`).join('')
+    :'<option value="">No rooms available in this category</option>';
+}
+
+function openBkMo(preRoom){
+  if(curRole!=='admin'){showToast('Only Admin can create reservations.','er');return;}
+  document.getElementById('eid').value='';
+  document.getElementById('bkTitle').textContent='📝 New Reservation';
+  ['fCat','fGuest','fCont','fDesig','fComp','fRem'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fRoom').innerHTML='<option value="">Select category first</option>';
+  document.getElementById('fIn').value=tod();
+  document.getElementById('fOut').value='';
+  document.getElementById('fPay').value='Self Payment - Employee';
+  document.getElementById('fStat').value='Confirmed';
+  document.getElementById('fBy').value=curName;
+  if(preRoom){ const rm=ROOMS.find(m=>m.num===preRoom); if(rm){ document.getElementById('fCat').value=rm.cat; filterRoomsByCat(); setTimeout(()=>document.getElementById('fRoom').value=preRoom,50); } }
+  document.getElementById('bkMo').classList.add('open');
+}
+
+function qBook(num){ openBkMo(num); }
+function closeBkMo(){ document.getElementById('bkMo').classList.remove('open'); }
+
+function editRes(id){
+  if(curRole!=='admin'){showToast('Only Admin can edit.','er');return;}
+  const r=reservations.find(x=>x.id===id); if(!r) return;
+  document.getElementById('eid').value=id;
+  document.getElementById('bkTitle').textContent='✏ Edit Reservation';
+  document.getElementById('fCat').value=r.cat||'';
+  filterRoomsByCat();
+  setTimeout(()=>document.getElementById('fRoom').value=r.room,50);
+  document.getElementById('fGuest').value=r.guest||'';
+  document.getElementById('fCont').value=r.contact||'';
+  document.getElementById('fDesig').value=r.desig||'';
+  document.getElementById('fComp').value=r.comp||'';
+  document.getElementById('fIn').value=r.checkIn||'';
+  document.getElementById('fOut').value=r.checkOut||'';
+  document.getElementById('fPay').value=r.payType||'Self Payment - Employee';
+  document.getElementById('fStat').value=r.status||'Confirmed';
+  document.getElementById('fBy').value=r.by||'';
+  document.getElementById('fRem').value=r.remarks||'';
+  document.getElementById('bkMo').classList.add('open');
+}
+
+async function saveRes(){
+  if(curRole!=='admin'){showToast('Permission denied.','er');return;}
+  const room=parseInt(document.getElementById('fRoom').value);
+  const guest=document.getElementById('fGuest').value.trim();
+  const cin=document.getElementById('fIn').value;
+  const cout=document.getElementById('fOut').value;
+  const cat=document.getElementById('fCat').value;
+  if(!room||!guest||!cin||!cout||!cat){showToast('Fill all required fields.','er');return;}
+  if(cout<=cin){showToast('Check-Out must be after Check-In.','er');return;}
+  const eid=document.getElementById('eid').value;
+  const data={
+    room, cat, guest,
+    contact:document.getElementById('fCont').value.trim(),
+    desig:document.getElementById('fDesig').value.trim(),
+    comp:document.getElementById('fComp').value.trim(),
+    checkIn:cin, checkOut:cout,
+    payType:document.getElementById('fPay').value,
+    status:document.getElementById('fStat').value,
+    by:document.getElementById('fBy').value.trim(),
+    remarks:document.getElementById('fRem').value.trim(),
+    actualRoom:null,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+  setSyncStatus('syncing');
+  try{
+    if(eid){ await db.collection('reservations').doc(eid).update(data); showToast('Reservation updated!','ok'); }
+    else { data.createdAt=firebase.firestore.FieldValue.serverTimestamp(); await db.collection('reservations').add(data); showToast('Reservation saved!','ok'); }
+    closeBkMo();
+  } catch(e){ showToast('Error: '+e.message,'er'); }
+}
+
+async function chStat(id,st){
+  if(curRole==='viewer'){showToast('View-only access.','er');return;}
+  try{
+    await db.collection('reservations').doc(id).update({status:st,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    showToast('Status → '+st,'ok');
+    refDash();
+  } catch(e){ showToast('Error: '+e.message,'er'); }
+}
+
+async function delRes(id){
+  if(curRole!=='admin'){showToast('Only Admin can delete.','er');return;}
+  if(!confirm('Delete this reservation? Cannot be undone.')) return;
+  try{ await db.collection('reservations').doc(id).delete(); showToast('Deleted.','ok'); }
+  catch(e){ showToast('Error: '+e.message,'er'); }
+}
+
+// ══════════════════════════════════════════════════
+// RESERVATIONS TABLE
+// ══════════════════════════════════════════════════
+function renderTable(){
+  const q=(document.getElementById('srch')||{}).value?.toLowerCase()||'';
+  const sf=document.getElementById('sfStat').value;
+  const sp=document.getElementById('sfPay').value;
+  const sc=document.getElementById('sfCat').value;
+  let list=[...reservations];
+  if(q) list=list.filter(r=>(r.guest||'').toLowerCase().includes(q)||(r.room+'').includes(q)||(r.id+'').includes(q));
+  if(sf) list=list.filter(r=>r.status===sf);
+  if(sp) list=list.filter(r=>r.payType===sp);
+  if(sc) list=list.filter(r=>r.cat===sc);
+  document.getElementById('resCount').textContent=`(${list.length} records)`;
+  const pm={'Self Payment - Employee':'b-emp','Self Payment - Vendor':'b-vend','Company Guest':'b-comp'};
+  const sm={'Confirmed':'b-conf','Checked-In':'b-in','Checked-Out':'b-out','Cancelled':'b-can'};
+  const isAdmin=curRole==='admin';
+  const canAction=curRole==='admin'||curRole==='supervisor';
+  document.getElementById('bBody').innerHTML=list.length?list.map(r=>`<tr>
+    <td style="font-size:10px;color:var(--tl)">${r.id}</td>
+    <td><strong>${r.room}</strong></td>
+    <td>${r.actualRoom&&r.actualRoom!==r.room?`<strong style="color:var(--occ)">${r.actualRoom}</strong> <span class="badge b-swap">⇄</span>`:'<span style="color:var(--tl);font-size:10px">same</span>'}</td>
+    <td>${r.guest}</td><td>${r.contact||'—'}</td>
+    <td>${fD(r.checkIn)}</td><td>${fD(r.checkOut)}</td>
+    <td>${nts(r.checkIn,r.checkOut)}</td>
+    <td><span class="badge b-vip2">${r.cat||'—'}</span></td>
+    <td><span class="badge ${pm[r.payType]||'b-conf'}" style="font-size:9px">${r.payType||'—'}</span></td>
+    <td><span class="badge ${sm[r.status]||''}">${r.status}</span></td>
+    <td style="font-size:11px">${r.by||'—'}</td>
+    <td><div class="ab">
+      ${isAdmin?`<button class="btn btn-out btn-xs" onclick="editRes('${r.id}')">Edit</button>`:''}
+      ${canAction&&r.status==='Confirmed'?`<button class="btn btn-grn btn-xs" onclick="chStat('${r.id}','Checked-In')">In</button>`:''}
+      ${canAction&&r.status==='Checked-In'?`<button class="btn btn-navy btn-xs" onclick="chStat('${r.id}','Checked-Out')">Out</button>`:''}
+      ${isAdmin?`<button class="btn btn-red btn-xs" onclick="delRes('${r.id}')">✕</button>`:''}
+    </div></td>
+  </tr>`).join(''):'<tr><td colspan="13" class="nd">No reservations found</td></tr>';
+}
+
+// ══════════════════════════════════════════════════
+// SWAP LOG
+// ══════════════════════════════════════════════════
+function renderSwapLog(){
+  document.getElementById('swapBody').innerHTML=swapLog.length?swapLog.map(s=>{
+    const dt=s.ts&&s.ts.toDate?s.ts.toDate().toISOString().split('T')[0]:'';
+    const ts=s.ts&&s.ts.toDate?s.ts.toDate().toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+    return `<tr><td>${fD(dt)}</td><td style="font-size:10px;color:var(--tl)">${s.resId}</td><td>${s.guest}</td>
+    <td><strong>${s.allottedRoom}</strong></td><td><strong style="color:var(--occ)">${s.actualRoom}</strong></td>
+    <td>${s.reason}</td><td>${s.changedBy}</td><td style="font-size:10px;color:var(--tl)">${ts}</td></tr>`;
+  }).join(''):'<tr><td colspan="8" class="nd">No swaps recorded yet</td></tr>';
+}
+
+// ══════════════════════════════════════════════════
+// REPORTS
+// ══════════════════════════════════════════════════
+function genRpt(){
+  const f=document.getElementById('rFrom').value, t=document.getElementById('rTo').value;
+  if(!f||!t){showToast('Select date range.','er');return;}
+  const list=reservations.filter(r=>r.status!=='Cancelled'&&r.checkIn>=f&&r.checkIn<=t);
+  const nights=list.reduce((s,r)=>s+nts(r.checkIn,r.checkOut),0);
+  const vip=list.filter(r=>r.cat==='VIP').length;
+  const swps=swapLog.filter(s=>{const d=s.ts&&s.ts.toDate?s.ts.toDate().toISOString().split('T')[0]:'';return d>=f&&d<=t;}).length;
+  const days=Math.max(1,nts(f,t));
+  document.getElementById('rTot').textContent=list.length;
+  document.getElementById('rNts').textContent=nights;
+  document.getElementById('rVip').textContent=vip;
+  document.getElementById('rSwp').textContent=swps;
+  document.getElementById('rAvg').textContent=Math.round((nights/(days*28))*100)+'%';
+  const pyClr={'Self Payment - Employee':'var(--vac)','Self Payment - Vendor':'#854d0e','Company Guest':'var(--vip)'};
+  document.getElementById('payBreak').innerHTML=['Self Payment - Employee','Self Payment - Vendor','Company Guest'].map(pt=>{
+    const c=list.filter(r=>r.payType===pt).length;
+    return `<div class="sc"><div class="sc-lbl">${pt}</div><div class="sc-num" style="color:${pyClr[pt]}">${c}</div><div class="sc-sub">bookings</div></div>`;
+  }).join('');
+  const sm={'Confirmed':'b-conf','Checked-In':'b-in','Checked-Out':'b-out','Cancelled':'b-can'};
+  document.getElementById('rBody').innerHTML=list.length?list.map(r=>`<tr>
+    <td style="font-size:10px;color:var(--tl)">${r.id}</td><td>${r.room}</td>
+    <td>${r.actualRoom&&r.actualRoom!==r.room?`<strong style="color:var(--occ)">${r.actualRoom}</strong> ⇄`:'—'}</td>
+    <td>${r.guest}</td><td>${fD(r.checkIn)}</td><td>${fD(r.checkOut)}</td>
+    <td>${nts(r.checkIn,r.checkOut)}</td><td><span class="badge b-vip2">${r.cat||'—'}</span></td>
+    <td style="font-size:10px">${r.payType||'—'}</td><td><span class="badge ${sm[r.status]||''}">${r.status}</span></td>
+  </tr>`).join(''):'<tr><td colspan="10" class="nd">No data in this period</td></tr>';
+}
+function expRpt(){
+  const f=document.getElementById('rFrom').value,t=document.getElementById('rTo').value;
+  if(!f||!t){showToast('Generate first.','er');return;}
+  doExport(reservations.filter(r=>r.checkIn>=f&&r.checkIn<=t),`GAIL_GH_Report_${f}_to_${t}.xlsx`);
+}
+
+// ══════════════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════════════
+function fmtTS(ts){ return ts&&ts.toDate?ts.toDate().toISOString().replace('T',' ').slice(0,19):''; }
+function doExport(data,fname){
+  const rows=data.map(r=>({
+    'Reservation ID':r.id,'Allotted Room':r.room,'Actual Room':r.actualRoom||r.room,
+    'Category':r.cat,'Bed Type':(ROOMS.find(m=>m.num===(r.actualRoom||r.room))||{}).beds||'',
+    'Floor':(ROOMS.find(m=>m.num===r.room)||{}).floor||'',
+    'Guest Name':r.guest,'Contact':r.contact||'','Designation':r.desig||'',
+    'Company/Unit':r.comp||'','Check-In':r.checkIn,'Check-Out':r.checkOut,
+    'Nights':nts(r.checkIn,r.checkOut),'Payment Type':r.payType||'',
+    'Status':r.status,'Booked By':r.by||'','Remarks':r.remarks||'',
+    'Created':fmtTS(r.createdAt)
+  }));
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[14,12,12,12,18,6,22,16,18,18,12,12,7,22,12,14,24,18].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,ws,'Reservations');
+  XLSX.writeFile(wb,fname); showToast('Exported!','ok');
+}
+function expAll(){ doExport(reservations,'GAIL_GH_All_Reservations.xlsx'); }
+function expToday(){
+  const dt=tod();
+  const occMap={};
+  reservations.filter(r=>isOcc(r,dt)).forEach(r=>{occMap[roomOf(r)]=r;});
+  const rows=ROOMS.map(rm=>{
+    const r=occMap[rm.num]; const isMnt=(roomStatus[rm.num]||'active')==='maintenance';
+    return {'Room':rm.num,'Label':rm.label,'Category':rm.cat,'Bed Type':rm.beds,'Floor':rm.floor,
+      'Status':isMnt?'Maintenance':r?'Occupied':'Vacant',
+      'Guest':r?r.guest:'','Contact':r?r.contact||'':'',
+      'Check-In':r?r.checkIn:'','Check-Out':r?r.checkOut:'',
+      'Payment':r?r.payType||'':'','Allotted':r?r.room:'','Actual':r?rm.num:''};
+  });
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Status_'+dt);
+  XLSX.writeFile(wb,`GAIL_GH_Status_${dt}.xlsx`); showToast('Exported!','ok');
+}
+function expRange(){
+  const f=document.getElementById('exFrom').value,t=document.getElementById('exTo').value;
+  if(!f||!t){showToast('Select range first.','er');return;}
+  doExport(reservations.filter(r=>r.checkIn>=f&&r.checkIn<=t),`GAIL_GH_${f}_to_${t}.xlsx`);
+}
+function expSwaps(){
+  const rows=swapLog.map(s=>({'Swap ID':s.id||'','Res. ID':s.resId,'Guest':s.guest,
+    'Allotted Room':s.allottedRoom,'Actual Room':s.actualRoom,'Reason':s.reason,
+    'Notes':s.note||'','Changed By':s.changedBy,'Timestamp':fmtTS(s.ts)}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.length?rows:[{Info:'No swaps yet'}]),'SwapLog');
+  XLSX.writeFile(wb,'GAIL_GH_SwapLog.xlsx'); showToast('Exported!','ok');
+}
+function dlTpl(){
+  const rows=[{'Room Number':101,'Room Category':'VIP','Guest Name':'Example','Contact':'9999999999','Designation':'Manager','Company/Unit':'GAIL HQ','Check-In Date':'2024-06-10','Check-Out Date':'2024-06-12','Payment Type':'Self Payment - Employee','Status':'Confirmed','Booked By':'Admin','Remarks':''}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Template');
+  XLSX.writeFile(wb,'GAIL_GH_Import_Template.xlsx'); showToast('Template downloaded!','ok');
+}
+function dvOv(e){e.preventDefault();document.getElementById('dz').classList.add('dov');}
+function dvLv(){document.getElementById('dz').classList.remove('dov');}
+function dvDr(e){e.preventDefault();dvLv();if(e.dataTransfer.files[0])procFile(e.dataTransfer.files[0]);}
+function doImport(e){if(e.target.files[0])procFile(e.target.files[0]);}
+function normDate(v){
+  if(!v) return '';
+  if(v instanceof Date) return v.toISOString().split('T')[0];
+  const s=v.toString().trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  try{const d=new Date(s);if(!isNaN(d))return d.toISOString().split('T')[0];}catch(e){}
+  return '';
+}
+async function procFile(file){
+  if(curRole!=='admin'){showToast('Only Admin can import.','er');return;}
+  const rd=new FileReader();
+  rd.onload=async function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+      let ok=0,sk=0;
+      const batch=db.batch();
+      data.forEach(row=>{
+        const rn=parseInt(row['Room Number']||row['RoomNumber']||0);
+        const guest=(row['Guest Name']||row['GuestName']||'').trim();
+        const cin=normDate(row['Check-In Date']||row['CheckInDate']||'');
+        const cout=normDate(row['Check-Out Date']||row['CheckOutDate']||'');
+        if(!rn||!guest||!cin||!cout){sk++;return;}
+        const rm=ROOMS.find(m=>m.num===rn);
+        const ref=db.collection('reservations').doc();
+        batch.set(ref,{room:rn,cat:rm?rm.cat:'',guest,
+          contact:(row['Contact']||row['GuestContact']||'').toString().trim(),
+          desig:(row['Designation']||'').trim(),comp:(row['Company/Unit']||'').trim(),
+          checkIn:cin,checkOut:cout,
+          payType:(row['Payment Type']||row['PaymentType']||'Self Payment - Employee').trim(),
+          status:(row['Status']||'Confirmed').trim(),
+          by:(row['Booked By']||'Import').trim(),
+          remarks:(row['Remarks']||'').trim(),
+          actualRoom:null,
+          createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+        });
+        ok++;
+      });
+      await batch.commit();
+      document.getElementById('impPrev').innerHTML=`<div style="background:var(--vac-bg);border:1px solid var(--vac-br);border-radius:var(--r);padding:12px;font-size:12px">✅ <strong>${ok} records imported to Firebase</strong>${sk?` · ⚠ ${sk} rows skipped`:''}</div>`;
+      showToast(`${ok} records imported!`,'ok');
+    }catch(err){showToast('Could not read file.','er');}
+  };
+  rd.readAsBinaryString(file);
+}
+
+// ══════════════════════════════════════════════════
+// USER MANAGEMENT
+// ══════════════════════════════════════════════════
+async function loadUsers(){
+  try{
+    const snap=await db.collection('approvedUsers').get();
+    approvedUsers=snap.docs.map(d=>({uid:d.id,...d.data()}));
+    const pSnap=await db.collection('pendingUsers').get();
+    const pending=pSnap.docs.map(d=>({uid:d.id,...d.data()}));
+    const approvedUids=new Set(approvedUsers.map(u=>u.uid));
+    const pendingOnly=pending.filter(u=>!approvedUids.has(u.uid));
+    const roleClr={admin:'r-admin',supervisor:'r-supervisor',viewer:'r-viewer'};
+    document.getElementById('userList').innerHTML=approvedUsers.length?approvedUsers.map(u=>`
+      <div class="user-row">
+        <div class="user-av-sm">${(u.name||'?')[0].toUpperCase()}</div>
+        <div class="user-info">
+          <div class="user-name">${u.name||'—'}</div>
+          <div class="user-email">${u.email||u.uid}</div>
+        </div>
+        <span class="role-chip ${roleClr[u.role]||'r-viewer'}">${u.role||'viewer'}</span>
+        ${u.uid!==curUser.uid?`<select class="si" style="font-size:11px;padding:4px 8px" onchange="changeRole('${u.uid}',this.value)">
+          <option value="viewer"${u.role==='viewer'?' selected':''}>Viewer</option>
+          <option value="supervisor"${u.role==='supervisor'?' selected':''}>Supervisor</option>
+          <option value="admin"${u.role==='admin'?' selected':''}>Admin</option>
+        </select>
+        <button class="btn btn-red btn-xs" onclick="removeUser('${u.uid}')">Remove</button>`:'<span style="font-size:11px;color:var(--tl)">(you)</span>'}
+      </div>`).join(''):'<div class="nd">No users yet</div>';
+    document.getElementById('pendingList').innerHTML=pendingOnly.length?pendingOnly.map(u=>`
+      <div class="user-row">
+        <div class="user-av-sm">${(u.name||'?')[0].toUpperCase()}</div>
+        <div class="user-info"><div class="user-name">${u.name||'—'}</div><div class="user-email">${u.email||u.uid}</div></div>
+        <select class="si" style="font-size:11px;padding:4px 8px" id="pr_${u.uid}"><option value="viewer">Viewer</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option></select>
+        <button class="btn btn-grn btn-xs" onclick="approveUser('${u.uid}','${u.name||''}','${u.email||''}')">✓ Approve</button>
+      </div>`).join(''):'<div class="nd">No pending requests</div>';
+  }catch(e){showToast('Error loading users.','er');}
+}
+
+function openAddUser(){ document.getElementById('addUserMo').classList.add('open'); }
+function closeAddUser(){ document.getElementById('addUserMo').classList.remove('open'); }
+
+async function addUser(){
+  const uid=document.getElementById('auUid').value.trim();
+  const name=document.getElementById('auName').value.trim();
+  const email=document.getElementById('auEmail').value.trim();
+  const role=document.getElementById('auRole').value;
+  if(!uid||!name){showToast('UID and Name are required.','er');return;}
+  try{
+    await db.collection('approvedUsers').doc(uid).set({name,email,role,addedBy:curUser.uid,addedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    showToast('User added!','ok'); closeAddUser(); loadUsers();
+  }catch(e){showToast('Error: '+e.message,'er');}
+}
+
+async function approveUser(uid,name,email){
+  const role=document.getElementById('pr_'+uid).value;
+  try{
+    await db.collection('approvedUsers').doc(uid).set({name,email,role,addedBy:curUser.uid,addedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    showToast(`${name} approved as ${role}!`,'ok'); loadUsers();
+  }catch(e){showToast('Error: '+e.message,'er');}
+}
+
+async function changeRole(uid,role){
+  try{ await db.collection('approvedUsers').doc(uid).update({role}); showToast('Role updated!','ok'); }
+  catch(e){showToast('Error: '+e.message,'er');}
+}
+
+async function removeUser(uid){
+  if(!confirm('Remove this user? They will lose access immediately.')) return;
+  try{ await db.collection('approvedUsers').doc(uid).delete(); showToast('User removed.','ok'); loadUsers(); }
+  catch(e){showToast('Error: '+e.message,'er');}
+}
+
+// ══════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════
+function renderSettings(){
+  document.getElementById('rmCfg').innerHTML=ROOMS.map(rm=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:12px">
+      <span style="width:52px;font-weight:700;color:var(--navy)">${rm.label}</span>
+      <span style="width:50px;color:var(--tl)">${rm.floor}</span>
+      <span style="flex:1;color:var(--tm)">${rm.beds}</span>
+      <select class="fc" style="font-size:11px;padding:4px 8px;width:130px" id="rs_${rm.num}">
+        <option value="active"${(roomStatus[rm.num]||'active')==='active'?' selected':''}>✅ Active</option>
+        <option value="maintenance"${roomStatus[rm.num]==='maintenance'?' selected':''}>🔧 Maintenance</option>
+      </select>
+    </div>`).join('');
+}
+
+async function saveRmCfg(){
+  try{
+    const batch=db.batch();
+    ROOMS.forEach(rm=>{
+      const s=document.getElementById('rs_'+rm.num);
+      if(s){ batch.set(db.collection('roomStatus').doc(rm.num.toString()),{status:s.value}); roomStatus[rm.num]=s.value; }
+    });
+    await batch.commit();
+    refDash(); showToast('Room config saved!','ok');
+  }catch(e){showToast('Error: '+e.message,'er');}
+}
+
+async function saveGH(){
+  try{
+    await db.collection('settings').doc('ghInfo').set({
+      name:document.getElementById('ghN').value,
+      address:document.getElementById('ghA').value,
+      contact:document.getElementById('ghC').value,
+      updatedBy:curUser.uid
+    });
+    showToast('Settings saved!','ok');
+  }catch(e){showToast('Error: '+e.message,'er');}
+}
+
+// ══════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════
+let tt;
+function showToast(m,t=''){
+  const el=document.getElementById('toast');
+  el.textContent=m; el.className='toast show '+(t||'');
+  clearTimeout(tt); tt=setTimeout(()=>el.className='toast',3200);
+}
+
+// ══════════════════════════════════════════════════
+// MODAL CLOSE
+// ══════════════════════════════════════════════════
+document.getElementById('bkMo').addEventListener('click',function(e){if(e.target===this)closeBkMo();});
+document.getElementById('rdMo').addEventListener('click',function(e){if(e.target===this)closeRdMo();});
+document.getElementById('addUserMo').addEventListener('click',function(e){if(e.target===this)closeAddUser();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeBkMo();closeRdMo();closeAddUser();}});
+</script>
+</body>
+</html>
