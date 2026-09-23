@@ -199,6 +199,13 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
 .mf{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
 .swap-box{background:#fffbeb;border:1.5px solid #f6d860;border-radius:var(--r);padding:14px;margin-top:14px}
 .swap-box h4{font-size:12px;font-weight:700;color:#92400e;margin-bottom:10px}
+.early-box{background:#fef2f2;border:1.5px solid #fca5a5;border-radius:var(--r);padding:14px;margin-top:10px}
+.early-box h4{font-size:12px;font-weight:700;color:#991b1b;margin-bottom:10px}
+.typechg-box{background:#f0f9ff;border:1.5px solid #7dd3fc;border-radius:var(--r);padding:14px;margin-top:10px}
+.typechg-box h4{font-size:12px;font-weight:700;color:#075985;margin-bottom:10px}
+.sup-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.b-early{background:#fee2e2;color:#991b1b}
+.b-typechg{background:#e0f2fe;color:#075985}
 
 /* ── USER MANAGEMENT ── */
 .user-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
@@ -383,8 +390,8 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
     <div class="th"><div class="th-title">🔄 Room Swap / Allotment Change Log</div><div style="font-size:11px;color:var(--tl)">All cases where actual room differed from allotted room</div></div>
     <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Date</th><th>Res. ID</th><th>Guest</th><th>Allotted Room</th><th>Actual Room</th><th>Reason</th><th>Changed By</th><th>Time</th></tr></thead>
-        <tbody id="swapBody"><tr><td colspan="8" class="nd">Loading...</td></tr></tbody>
+        <thead><tr><th>Date</th><th>Res. ID</th><th>Guest</th><th>Type</th><th>Allotted Room</th><th>Actual Room</th><th>Reason / Details</th><th>Changed By</th><th>Time</th></tr></thead>
+        <tbody id="swapBody"><tr><td colspan="9" class="nd">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -515,8 +522,8 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
     <div class="fgr"><label class="fl">Contact No.</label><input type="text" class="fc" id="fCont" placeholder="Mobile / Email"></div>
     <div class="fgr"><label class="fl">Designation / Dept</label><input type="text" class="fc" id="fDesig" placeholder="e.g. Manager, HR"></div>
     <div class="fgr"><label class="fl">Company / Unit</label><input type="text" class="fc" id="fComp" placeholder="e.g. GAIL HQ, Noida"></div>
-    <div class="fgr"><label class="fl">Check-In Date *</label><input type="date" class="fc" id="fIn"></div>
-    <div class="fgr"><label class="fl">Check-Out Date *</label><input type="date" class="fc" id="fOut"></div>
+    <div class="fgr"><label class="fl">Check-In Date *</label><input type="date" class="fc" id="fIn" onchange="filterRoomsByCat()"></div>
+    <div class="fgr"><label class="fl">Check-Out Date *</label><input type="date" class="fc" id="fOut" onchange="filterRoomsByCat()"></div>
     <div class="fgr"><label class="fl">Payment Type *</label>
       <select class="fc" id="fPay">
         <option>Self Payment - Employee</option>
@@ -539,8 +546,90 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
 <div class="md">
   <div class="mt" id="rdTitle">Room Details</div>
   <div id="rdContent"></div>
+  <!-- SUPERVISOR ACTION BUTTONS (shown when room is occupied and user can act) -->
+  <div class="sup-actions" id="supActions" style="display:none">
+    <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5" onclick="togglePanel('earlyBox')">⏩ Early Check-Out</button>
+    <button class="btn btn-sm" style="background:#e0f2fe;color:#075985;border:1.5px solid #7dd3fc" onclick="togglePanel('typeChgBox')">🔄 Change Room Type</button>
+    <button class="btn btn-sm" style="background:#fffbeb;color:#92400e;border:1.5px solid #f6d860" onclick="togglePanel('swapBox')">↔ Same-Category Swap</button>
+  </div>
+
+  <!-- EARLY CHECKOUT BOX -->
+  <div class="early-box" id="earlyBox" style="display:none">
+    <h4>⏩ Early Check-Out</h4>
+    <div style="font-size:11px;color:#7f1d1d;margin-bottom:10px">Original check-out date will be preserved in audit. Nights will be recalculated.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="fgr">
+        <label class="fl">Actual Check-Out Date *</label>
+        <input type="date" class="fc" id="earlyDate">
+      </div>
+      <div class="fgr">
+        <label class="fl">Reason *</label>
+        <select class="fc" id="earlyReason">
+          <option>Guest request</option>
+          <option>Official work completed early</option>
+          <option>Personal emergency</option>
+          <option>Travel schedule change</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="fgr" style="margin-bottom:10px">
+      <label class="fl">Notes</label>
+      <input type="text" class="fc" id="earlyNote" placeholder="Optional details...">
+    </div>
+    <button class="btn btn-red btn-sm" onclick="saveEarlyCheckout()">⏩ Confirm Early Check-Out</button>
+  </div>
+
+  <!-- ROOM TYPE CHANGE BOX -->
+  <div class="typechg-box" id="typeChgBox" style="display:none">
+    <h4>🔄 Change Room Type</h4>
+    <div style="font-size:11px;color:#075985;margin-bottom:10px">Guest is moving to a different room category. Category and payment type may need review. This is recorded in the Swap Log.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="fgr">
+        <label class="fl">New Category *</label>
+        <select class="fc" id="tcNewCat" onchange="populateTcRooms()">
+          <option value="">-- Select New Category --</option>
+          <option>VIP</option>
+          <option>Single Bed</option>
+          <option>Double Bed</option>
+        </select>
+      </div>
+      <div class="fgr">
+        <label class="fl">New Room *</label>
+        <select class="fc" id="tcNewRoom"><option value="">Select category first</option></select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="fgr">
+        <label class="fl">Reason *</label>
+        <select class="fc" id="tcReason">
+          <option>Guest preference — upgrade</option>
+          <option>Guest preference — downgrade</option>
+          <option>Original room issue</option>
+          <option>Maintenance in original room</option>
+          <option>Supervisor discretion</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="fgr">
+        <label class="fl">Updated Payment Type</label>
+        <select class="fc" id="tcPayType">
+          <option>Self Payment - Employee</option>
+          <option>Self Payment - Vendor</option>
+          <option>Company Guest</option>
+        </select>
+      </div>
+    </div>
+    <div class="fgr" style="margin-bottom:10px">
+      <label class="fl">Notes</label>
+      <input type="text" class="fc" id="tcNote" placeholder="Optional details...">
+    </div>
+    <button class="btn btn-navy btn-sm" onclick="saveTypeChange()">🔄 Confirm Room Type Change</button>
+  </div>
+
+  <!-- SAME-CATEGORY SWAP BOX -->
   <div class="swap-box" id="swapBox" style="display:none">
-    <h4>🔄 Record Actual Room Given (Different from Allotted)</h4>
+    <h4>↔ Same-Category Room Swap</h4>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fgr"><label class="fl">Actual Room Given</label><select class="fc" id="swRoom"></select></div>
       <div class="fgr"><label class="fl">Reason *</label>
@@ -553,6 +642,7 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
     <div class="fgr" style="margin-bottom:10px"><label class="fl">Notes</label><input type="text" class="fc" id="swNote" placeholder="Optional..."></div>
     <button class="btn btn-gold btn-sm" onclick="saveSwap()">Record Swap</button>
   </div>
+
   <div class="mf"><button class="btn btn-out" onclick="closeRdMo()">Close</button><button class="btn btn-gold" id="rdBkBtn" style="display:none">Book This Room</button></div>
 </div>
 </div>
@@ -585,12 +675,12 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
 ═══════════════════════════════════════════════════════ -->
 <script>
 const firebaseConfig = {
-  apiKey:            "AIzaSyCGZINIs_zzU-6on0kuSCaM1qQJ22ZIwPU",
-  authDomain:        "gail-vijaipur-guest-house.firebaseapp.com",
-  projectId:         "gail-vijaipur-guest-house",
-  storageBucket:     "gail-vijaipur-guest-house.firebasestorage.app",
-  messagingSenderId: "405304546163",
-  appId:             "1:405304546163:web:66f5082020d980f20eeb06"
+  apiKey:            "PASTE_YOUR_API_KEY_HERE",
+  authDomain:        "PASTE_YOUR_AUTH_DOMAIN_HERE",
+  projectId:         "PASTE_YOUR_PROJECT_ID_HERE",
+  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET_HERE",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID_HERE",
+  appId:             "PASTE_YOUR_APP_ID_HERE"
 };
 </script>
 <!-- ═══ END FIREBASE CONFIG ═══ -->
@@ -881,11 +971,20 @@ function renderFloorGrid(dt,occRooms){
     let cls=isMnt?'maint':res?'occ':'vac'; if(isVip&&!isMnt)cls+=' vip-r';
     const st=isMnt?'🔧 Maint.':res?'🔴 Occupied':'🟢 Vacant';
     const hasSwap=res&&res.actualRoom&&res.actualRoom!==res.room;
+    const hasTypeChg=res&&res.typeChanged;
+    const hasEarlyCo=res&&res.earlyCheckout;
+    // Badge priority: type change > early CO > swap
+    const cardBadge=hasTypeChg
+      ?`<div class="swap-badge" style="background:#e0f2fe;color:#075985">🔄 Type Chg</div>`
+      :hasEarlyCo
+      ?`<div class="swap-badge" style="background:#fee2e2;color:#991b1b">⏩ Early CO</div>`
+      :hasSwap
+      ?`<div class="swap-badge">⇄ Swapped</div>`:'';
     return `<div class="rc ${cls}" onclick="showRoomDetail(${rm.num})">
       <div class="rf">${rm.floor}</div><div class="rn">${rm.label}</div>
       <span class="rt">${rm.beds}</span><div class="rs">${st}</div>
-      ${res?`<div class="rg">${res.guest||''}</div><div class="rd">Out: ${fD(res.checkOut)}</div>`:''}
-      ${hasSwap?`<div class="swap-badge">⇄ Swapped</div>`:''}
+      ${res?`<div class="rg">${res.guest||''}</div><div class="rd">Out: ${fD(res.checkOut)}${hasEarlyCo?` <span style="font-size:8px;text-decoration:line-through;opacity:.7">${fD(res.originalCheckOut)}</span>`:''}</div>`:''}
+      ${cardBadge}
       ${!res&&!isMnt&&canBook?`<button class="qbook" onclick="event.stopPropagation();qBook(${rm.num})">+ Book</button>`:''}
     </div>`;
   }).join('');
@@ -938,26 +1037,86 @@ function showRoomDetail(num){
       <div style="margin-top:4px"><span class="badge ${pm[cur.payType]||'b-conf'}">${cur.payType||'—'}</span></div>
       <div style="color:var(--tm);margin-top:5px">📅 ${fD(cur.checkIn)} → ${fD(cur.checkOut)} (${nts(cur.checkIn,cur.checkOut)} nights)</div>
       ${hasSwap?`<div style="margin-top:5px;font-size:10px;color:var(--mnt);font-weight:700">⇄ Allotted: Rm ${cur.room} → Actual: Rm ${cur.actualRoom}</div>`:''}
+      ${cur.typeChanged?`<div style="margin-top:5px;font-size:10px;color:#075985;font-weight:700">🔄 Type changed: ${cur.originalCat} → ${cur.cat} (by ${cur.typeChangedBy||'—'})</div>`:''}
+      ${cur.earlyCheckout?`<div style="margin-top:5px;font-size:10px;color:#991b1b;font-weight:700">⏩ Early checkout: original date was ${fD(cur.originalCheckOut)} · Reason: ${cur.earlyCheckoutReason||'—'}</div>`:''}
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
         ${curRole==='admin'?`<button class="btn btn-out btn-xs" onclick="editRes('${cur.id}');closeRdMo()">Edit</button>`:''}
-        ${curRole!=='viewer'?`<button class="btn btn-navy btn-xs" onclick="chStat('${cur.id}','Checked-Out');closeRdMo()">Check Out</button>`:''}
+        ${curRole!=='viewer'&&cur.status!=='Checked-Out'?`<button class="btn btn-navy btn-xs" onclick="chStat('${cur.id}','Checked-Out');closeRdMo()">Check Out</button>`:''}
       </div>
     </div>`;
   }
   document.getElementById('rdTitle').textContent=`Room ${rm.label} — ${rm.cat} · ${rm.floor}`;
   document.getElementById('rdContent').innerHTML=h;
-  const sb=document.getElementById('swapBox');
-  if(cur&&curRole!=='viewer'){
-    sb.style.display='block';
+
+  // Hide all action panels first (clean state on every open)
+  ['swapBox','earlyBox','typeChgBox'].forEach(id=>hide(id));
+
+  const canAct = curRole==='admin'||curRole==='supervisor';
+  const supBar = document.getElementById('supActions');
+
+  if(cur && canAct){
+    // Show supervisor action buttons
+    supBar.style.display='flex';
+
+    // Pre-fill early checkout date with today as default
+    document.getElementById('earlyDate').value = tod();
+    document.getElementById('earlyDate').max   = cur.checkOut; // can't go beyond booked date
+    document.getElementById('earlyDate').min   = cur.checkIn;  // can't be before check-in
+
+    // Pre-fill room type change payment type from current reservation
+    document.getElementById('tcPayType').value = cur.payType||'Self Payment - Employee';
+    document.getElementById('tcNewCat').value  = '';
+    document.getElementById('tcNewRoom').innerHTML='<option value="">Select category first</option>';
+
+    // Pre-fill same-category swap room list
     const sr=document.getElementById('swRoom');
     sr.innerHTML=ROOMS.filter(m=>m.cat===rm.cat&&m.num!==num&&(roomStatus[m.num]||'active')!=='maintenance')
       .map(m=>`<option value="${m.num}">${m.label} (${m.floor})</option>`).join('');
-  } else { sb.style.display='none'; }
+    if(!sr.innerHTML) sr.innerHTML='<option value="">No other rooms in this category</option>';
+  } else {
+    supBar.style.display='none';
+  }
+
   const bb=document.getElementById('rdBkBtn');
   if(!cur&&(roomStatus[num]||'active')!=='maintenance'&&curRole==='admin'){
     bb.style.display='inline-flex'; bb.onclick=()=>{closeRdMo();qBook(num);}; 
   } else { bb.style.display='none'; }
   document.getElementById('rdMo').classList.add('open');
+}
+
+// Toggle a single panel, close others
+function togglePanel(id){
+  const panels=['swapBox','earlyBox','typeChgBox'];
+  panels.forEach(p=>{
+    const el=document.getElementById(p);
+    if(p===id){ el.style.display=el.style.display==='none'?'block':'none'; }
+    else { el.style.display='none'; }
+  });
+}
+
+// Populate room list for type change — uses the current reservation's dates
+function populateTcRooms(){
+  const newCat = document.getElementById('tcNewCat').value;
+  const el     = document.getElementById('tcNewRoom');
+  if(!newCat){ el.innerHTML='<option value="">Select category first</option>'; return; }
+
+  // Get the date range of the reservation being changed
+  const ri  = reservations.findIndex(r=>r.id===detailResId);
+  const res = ri>=0 ? reservations[ri] : null;
+  const cin  = res ? res.checkIn  : null;
+  const cout = res ? res.checkOut : null;
+
+  const available = ROOMS.filter(m => {
+    if(m.cat !== newCat) return false;
+    if((roomStatus[m.num]||'active') === 'maintenance') return false;
+    // Exclude the current room itself so they don't pick the same room
+    if(res && m.num === roomOf(res)) return false;
+    return !hasDateConflict(m.num, cin, cout, detailResId);
+  });
+
+  el.innerHTML = available.length
+    ? available.map(m=>`<option value="${m.num}">${m.label} (${m.floor}) — ${m.beds}</option>`).join('')
+    : '<option value="">No rooms available for these dates in this category</option>';
 }
 
 async function saveSwap(){
@@ -981,21 +1140,170 @@ async function saveSwap(){
     closeRdMo();
   } catch(e){ showToast('Error saving swap: '+e.message,'er'); }
 }
-function closeRdMo(){ document.getElementById('rdMo').classList.remove('open'); detailResId=null; }
+// ── EARLY CHECK-OUT ──────────────────────────────
+async function saveEarlyCheckout(){
+  if(!detailResId){showToast('No active reservation.','er');return;}
+  const ri=reservations.findIndex(r=>r.id===detailResId);
+  if(ri<0) return;
+  const res=reservations[ri];
+  const earlyDate=document.getElementById('earlyDate').value;
+  const reason=document.getElementById('earlyReason').value;
+  const note=document.getElementById('earlyNote').value.trim();
+
+  if(!earlyDate){showToast('Please enter the actual check-out date.','er');return;}
+  if(earlyDate>=res.checkOut){showToast('Early check-out date must be before the original check-out date.','er');return;}
+  if(earlyDate<res.checkIn){showToast('Date cannot be before check-in date.','er');return;}
+
+  const originalCheckOut=res.checkOut;
+  const originalNights=nts(res.checkIn,res.checkOut);
+  const actualNights=nts(res.checkIn,earlyDate);
+
+  setSyncStatus('syncing');
+  try{
+    // Update reservation with early checkout details
+    await db.collection('reservations').doc(detailResId).update({
+      checkOut: earlyDate,
+      status: 'Checked-Out',
+      earlyCheckout: true,
+      originalCheckOut: originalCheckOut,
+      originalNights: originalNights,
+      actualNights: actualNights,
+      earlyCheckoutReason: reason,
+      earlyCheckoutNote: note,
+      earlyCheckoutBy: curName,
+      earlyCheckoutByUid: curUser.uid,
+      earlyCheckoutAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Log to swapLog for audit trail
+    await db.collection('swapLog').add({
+      type: 'earlyCheckout',
+      resId: detailResId,
+      guest: res.guest,
+      allottedRoom: res.room,
+      actualRoom: res.actualRoom||res.room,
+      reason: `Early Check-Out: ${reason}`,
+      note: `Original checkout: ${fD(originalCheckOut)} (${originalNights} nts) → Actual: ${fD(earlyDate)} (${actualNights} nts). ${note}`,
+      changedBy: curName,
+      changedByUid: curUser.uid,
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`Early check-out recorded. Room freed on ${fD(earlyDate)}.`,'ok');
+    closeRdMo();
+  } catch(e){ showToast('Error: '+e.message,'er'); }
+}
+
+// ── ROOM TYPE CHANGE ──────────────────────────────
+async function saveTypeChange(){
+  if(!detailResId){showToast('No active reservation.','er');return;}
+  const ri=reservations.findIndex(r=>r.id===detailResId);
+  if(ri<0) return;
+  const res=reservations[ri];
+  const newCat=document.getElementById('tcNewCat').value;
+  const newRoom=parseInt(document.getElementById('tcNewRoom').value);
+  const reason=document.getElementById('tcReason').value;
+  const newPayType=document.getElementById('tcPayType').value;
+  const note=document.getElementById('tcNote').value.trim();
+
+  if(!newCat){showToast('Please select a new room category.','er');return;}
+  if(!newRoom){showToast('Please select a room in the new category.','er');return;}
+
+  const oldCat=res.cat;
+  const oldRoom=res.actualRoom||res.room;
+  const newRoomMeta=ROOMS.find(m=>m.num===newRoom);
+
+  setSyncStatus('syncing');
+  try{
+    // Update reservation with new room and category
+    await db.collection('reservations').doc(detailResId).update({
+      actualRoom: newRoom,
+      cat: newCat,
+      payType: newPayType,
+      typeChanged: true,
+      originalCat: res.originalCat||oldCat,  // preserve very first category
+      originalRoom: res.originalRoom||res.room,
+      typeChangeReason: reason,
+      typeChangeNote: note,
+      typeChangedBy: curName,
+      typeChangedByUid: curUser.uid,
+      typeChangedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Log to swapLog with typeChange flag
+    await db.collection('swapLog').add({
+      type: 'typeChange',
+      resId: detailResId,
+      guest: res.guest,
+      allottedRoom: res.room,
+      actualRoom: newRoom,
+      prevActual: oldRoom,
+      reason: `Room Type Change: ${oldCat} → ${newCat}. ${reason}`,
+      note: `Moved from Room ${oldRoom} (${oldCat}) to Room ${newRoom} (${newCat} — ${newRoomMeta?newRoomMeta.beds:''}). Payment: ${newPayType}. ${note}`,
+      changedBy: curName,
+      changedByUid: curUser.uid,
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`Room type changed: ${oldCat} → ${newCat}, Room ${newRoom}.`,'ok');
+    closeRdMo();
+  } catch(e){ showToast('Error: '+e.message,'er'); }
+}
+
+function closeRdMo(){
+  document.getElementById('rdMo').classList.remove('open');
+  detailResId=null;
+  // Clean up panels
+  ['swapBox','earlyBox','typeChgBox'].forEach(id=>hide(id));
+}
 
 // ══════════════════════════════════════════════════
 // BOOKING MODAL
 // ══════════════════════════════════════════════════
+
+// Returns true if an existing reservation conflicts with the given date range for a room
+function hasDateConflict(roomNum, newCheckIn, newCheckOut, excludeResId){
+  if(!newCheckIn || !newCheckOut) return false;
+  return reservations.some(r => {
+    if(excludeResId && r.id === excludeResId) return false;  // ignore self when editing
+    if(!['Confirmed','Checked-In'].includes(r.status)) return false;
+    if(roomOf(r) !== roomNum) return false;
+    // Overlap condition: new stay starts before existing ends AND new stay ends after existing starts
+    return newCheckIn < r.checkOut && newCheckOut > r.checkIn;
+  });
+}
+
 function filterRoomsByCat(){
-  const cat=document.getElementById('fCat').value;
-  const dt=document.getElementById('vDate').value||tod();
-  const fR=document.getElementById('fRoom');
-  if(!cat){ fR.innerHTML='<option value="">Select category first</option>'; return; }
-  const occupied=reservations.filter(r=>isOcc(r,dt)).map(r=>roomOf(r));
-  const available=ROOMS.filter(m=>m.cat===cat&&!occupied.includes(m.num)&&(roomStatus[m.num]||'active')!=='maintenance');
-  fR.innerHTML=available.length
-    ?available.map(m=>`<option value="${m.num}">${m.label} (${m.floor}) — ${m.beds}</option>`).join('')
-    :'<option value="">No rooms available in this category</option>';
+  const cat    = document.getElementById('fCat').value;
+  const newIn  = document.getElementById('fIn').value;
+  const newOut = document.getElementById('fOut').value;
+  const eid    = document.getElementById('eid').value;   // present when editing
+  const fR     = document.getElementById('fRoom');
+
+  if(!cat){
+    fR.innerHTML='<option value="">Select category first</option>';
+    return;
+  }
+
+  // If dates not filled yet, just show all active rooms in the category
+  if(!newIn || !newOut){
+    const allInCat = ROOMS.filter(m =>
+      m.cat===cat && (roomStatus[m.num]||'active')!=='maintenance'
+    );
+    fR.innerHTML = allInCat.length
+      ? allInCat.map(m=>`<option value="${m.num}">${m.label} (${m.floor}) — ${m.beds}</option>`).join('')
+      : '<option value="">No active rooms in this category</option>';
+    return;
+  }
+
+  // Check each room for date conflicts against the new booking dates
+  const available = ROOMS.filter(m => {
+    if(m.cat !== cat) return false;
+    if((roomStatus[m.num]||'active') === 'maintenance') return false;
+    return !hasDateConflict(m.num, newIn, newOut, eid);
+  });
+
+  fR.innerHTML = available.length
+    ? available.map(m=>`<option value="${m.num}">${m.label} (${m.floor}) — ${m.beds}</option>`).join('')
+    : '<option value="">No rooms available for these dates in this category</option>';
 }
 
 function openBkMo(preRoom){
@@ -1039,14 +1347,36 @@ function editRes(id){
 
 async function saveRes(){
   if(curRole!=='admin'){showToast('Permission denied.','er');return;}
-  const room=parseInt(document.getElementById('fRoom').value);
-  const guest=document.getElementById('fGuest').value.trim();
-  const cin=document.getElementById('fIn').value;
-  const cout=document.getElementById('fOut').value;
-  const cat=document.getElementById('fCat').value;
-  if(!room||!guest||!cin||!cout||!cat){showToast('Fill all required fields.','er');return;}
-  if(cout<=cin){showToast('Check-Out must be after Check-In.','er');return;}
-  const eid=document.getElementById('eid').value;
+  const room  = parseInt(document.getElementById('fRoom').value);
+  const guest = document.getElementById('fGuest').value.trim();
+  const cin   = document.getElementById('fIn').value;
+  const cout  = document.getElementById('fOut').value;
+  const cat   = document.getElementById('fCat').value;
+  const eid   = document.getElementById('eid').value;
+
+  if(!room||!guest||!cin||!cout||!cat){
+    showToast('Fill all required fields.','er'); return;
+  }
+  if(cout <= cin){
+    showToast('Check-Out must be after Check-In.','er'); return;
+  }
+
+  // ── Double-booking safety check ──────────────────
+  if(hasDateConflict(room, cin, cout, eid)){
+    // Find the conflicting reservation to show useful detail
+    const clash = reservations.find(r => {
+      if(eid && r.id===eid) return false;
+      if(!['Confirmed','Checked-In'].includes(r.status)) return false;
+      if(roomOf(r) !== room) return false;
+      return cin < r.checkOut && cout > r.checkIn;
+    });
+    const clashInfo = clash
+      ? ` Room ${room} is already booked for ${fD(clash.checkIn)} – ${fD(clash.checkOut)} (${clash.guest}).`
+      : '';
+    showToast(`⚠ Date conflict!${clashInfo}`, 'er');
+    return;
+  }
+  // ─────────────────────────────────────────────────
   const data={
     room, cat, guest,
     contact:document.getElementById('fCont').value.trim(),
@@ -1102,14 +1432,30 @@ function renderTable(){
   const sm={'Confirmed':'b-conf','Checked-In':'b-in','Checked-Out':'b-out','Cancelled':'b-can'};
   const isAdmin=curRole==='admin';
   const canAction=curRole==='admin'||curRole==='supervisor';
-  document.getElementById('bBody').innerHTML=list.length?list.map(r=>`<tr>
+  document.getElementById('bBody').innerHTML=list.length?list.map(r=>{
+    // Build special flag badges
+    const flags=[];
+    if(r.earlyCheckout) flags.push(`<span class="badge b-early" title="Early checkout: orig. ${fD(r.originalCheckOut)}">⏩ Early CO</span>`);
+    if(r.typeChanged)   flags.push(`<span class="badge b-typechg" title="Type changed from ${r.originalCat}">🔄 Type Chg</span>`);
+    const flagHtml=flags.length?`<div style="margin-top:3px;display:flex;gap:3px;flex-wrap:wrap">${flags.join('')}</div>`:'';
+    // Checkout cell — show original date if early checkout happened
+    const coCell=r.earlyCheckout
+      ?`${fD(r.checkOut)} <span style="font-size:9px;color:var(--tl);text-decoration:line-through">${fD(r.originalCheckOut)}</span>`
+      :fD(r.checkOut);
+    // Nights cell
+    const ntsCell=r.earlyCheckout
+      ?`<span title="Actual: ${r.actualNights||nts(r.checkIn,r.checkOut)} nts / Booked: ${r.originalNights||'?'} nts">${r.actualNights||nts(r.checkIn,r.checkOut)}<span style="font-size:9px;color:var(--tl)">/${r.originalNights||'?'}</span></span>`
+      :nts(r.checkIn,r.checkOut);
+    return `<tr>
     <td style="font-size:10px;color:var(--tl)">${r.id}</td>
-    <td><strong>${r.room}</strong></td>
+    <td><strong>${r.room}</strong>${r.originalRoom&&r.originalRoom!==r.room?`<br><span style="font-size:9px;color:var(--tl)">orig:${r.originalRoom}</span>`:''}</td>
     <td>${r.actualRoom&&r.actualRoom!==r.room?`<strong style="color:var(--occ)">${r.actualRoom}</strong> <span class="badge b-swap">⇄</span>`:'<span style="color:var(--tl);font-size:10px">same</span>'}</td>
-    <td>${r.guest}</td><td>${r.contact||'—'}</td>
-    <td>${fD(r.checkIn)}</td><td>${fD(r.checkOut)}</td>
-    <td>${nts(r.checkIn,r.checkOut)}</td>
-    <td><span class="badge b-vip2">${r.cat||'—'}</span></td>
+    <td>${r.guest}${flagHtml}</td>
+    <td>${r.contact||'—'}</td>
+    <td>${fD(r.checkIn)}</td>
+    <td>${coCell}</td>
+    <td>${ntsCell}</td>
+    <td><span class="badge b-vip2">${r.cat||'—'}${r.originalCat&&r.originalCat!==r.cat?`<br><span style="font-size:9px;font-weight:400;text-decoration:line-through">${r.originalCat}</span>`:''}</span></td>
     <td><span class="badge ${pm[r.payType]||'b-conf'}" style="font-size:9px">${r.payType||'—'}</span></td>
     <td><span class="badge ${sm[r.status]||''}">${r.status}</span></td>
     <td style="font-size:11px">${r.by||'—'}</td>
@@ -1119,20 +1465,34 @@ function renderTable(){
       ${canAction&&r.status==='Checked-In'?`<button class="btn btn-navy btn-xs" onclick="chStat('${r.id}','Checked-Out')">Out</button>`:''}
       ${isAdmin?`<button class="btn btn-red btn-xs" onclick="delRes('${r.id}')">✕</button>`:''}
     </div></td>
-  </tr>`).join(''):'<tr><td colspan="13" class="nd">No reservations found</td></tr>';
+  </tr>`;}).join(''):'<tr><td colspan="13" class="nd">No reservations found</td></tr>';
 }
 
 // ══════════════════════════════════════════════════
 // SWAP LOG
 // ══════════════════════════════════════════════════
 function renderSwapLog(){
+  const typeMap={
+    earlyCheckout:  {label:'⏩ Early CO',   bg:'#fee2e2',col:'#991b1b'},
+    typeChange:     {label:'🔄 Type Change', bg:'#e0f2fe',col:'#075985'},
+    undefined:      {label:'↔ Room Swap',   bg:'#fffbeb',col:'#92400e'},
+    null:           {label:'↔ Room Swap',   bg:'#fffbeb',col:'#92400e'},
+  };
   document.getElementById('swapBody').innerHTML=swapLog.length?swapLog.map(s=>{
     const dt=s.ts&&s.ts.toDate?s.ts.toDate().toISOString().split('T')[0]:'';
     const ts=s.ts&&s.ts.toDate?s.ts.toDate().toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
-    return `<tr><td>${fD(dt)}</td><td style="font-size:10px;color:var(--tl)">${s.resId}</td><td>${s.guest}</td>
-    <td><strong>${s.allottedRoom}</strong></td><td><strong style="color:var(--occ)">${s.actualRoom}</strong></td>
-    <td>${s.reason}</td><td>${s.changedBy}</td><td style="font-size:10px;color:var(--tl)">${ts}</td></tr>`;
-  }).join(''):'<tr><td colspan="8" class="nd">No swaps recorded yet</td></tr>';
+    const tm=typeMap[s.type]||typeMap[undefined];
+    return `<tr>
+    <td>${fD(dt)}</td>
+    <td style="font-size:10px;color:var(--tl)">${s.resId}</td>
+    <td>${s.guest}</td>
+    <td><span style="background:${tm.bg};color:${tm.col};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">${tm.label}</span></td>
+    <td><strong>${s.allottedRoom}</strong></td>
+    <td><strong style="color:var(--occ)">${s.actualRoom}</strong></td>
+    <td style="font-size:11px;max-width:200px">${s.reason}</td>
+    <td>${s.changedBy}</td>
+    <td style="font-size:10px;color:var(--tl)">${ts}</td></tr>`;
+  }).join(''):'<tr><td colspan="9" class="nd">No entries recorded yet</td></tr>';
 }
 
 // ══════════════════════════════════════════════════
@@ -1177,14 +1537,33 @@ function expRpt(){
 function fmtTS(ts){ return ts&&ts.toDate?ts.toDate().toISOString().replace('T',' ').slice(0,19):''; }
 function doExport(data,fname){
   const rows=data.map(r=>({
-    'Reservation ID':r.id,'Allotted Room':r.room,'Actual Room':r.actualRoom||r.room,
-    'Category':r.cat,'Bed Type':(ROOMS.find(m=>m.num===(r.actualRoom||r.room))||{}).beds||'',
+    'Reservation ID':r.id,
+    'Allotted Room':r.room,
+    'Actual Room':r.actualRoom||r.room,
+    'Original Room':r.originalRoom||r.room,
+    'Category':r.cat,
+    'Original Category':r.originalCat||r.cat,
+    'Bed Type':(ROOMS.find(m=>m.num===(r.actualRoom||r.room))||{}).beds||'',
     'Floor':(ROOMS.find(m=>m.num===r.room)||{}).floor||'',
-    'Guest Name':r.guest,'Contact':r.contact||'','Designation':r.desig||'',
-    'Company/Unit':r.comp||'','Check-In':r.checkIn,'Check-Out':r.checkOut,
-    'Nights':nts(r.checkIn,r.checkOut),'Payment Type':r.payType||'',
-    'Status':r.status,'Booked By':r.by||'','Remarks':r.remarks||'',
-    'Created':fmtTS(r.createdAt)
+    'Guest Name':r.guest,
+    'Contact':r.contact||'',
+    'Designation':r.desig||'',
+    'Company/Unit':r.comp||'',
+    'Check-In':r.checkIn,
+    'Check-Out':r.checkOut,
+    'Original Check-Out':r.originalCheckOut||r.checkOut,
+    'Nights':r.actualNights||nts(r.checkIn,r.checkOut),
+    'Original Nights':r.originalNights||nts(r.checkIn,r.checkOut),
+    'Early Checkout':r.earlyCheckout?'Yes':'No',
+    'Early CO Reason':r.earlyCheckoutReason||'',
+    'Type Changed':r.typeChanged?'Yes':'No',
+    'Type Change Reason':r.typeChangeReason||'',
+    'Payment Type':r.payType||'',
+    'Status':r.status,
+    'Booked By':r.by||'',
+    'Remarks':r.remarks||'',
+    'Created':fmtTS(r.createdAt),
+    'Last Updated':fmtTS(r.updatedAt)
   }));
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.json_to_sheet(rows);
