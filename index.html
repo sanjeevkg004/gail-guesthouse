@@ -746,8 +746,8 @@ firebase.initializeApp(firebaseConfig);
 auth = firebase.auth();
 db   = firebase.firestore();
 
-// Offline persistence — so it works even if internet flickers
-db.enablePersistence().catch(()=>{});
+// Offline persistence DISABLED — was causing stale cache auth loops
+// db.enablePersistence().catch(()=>{});
 
 // ══════════════════════════════════════════════════
 // AUTH FLOW
@@ -758,30 +758,42 @@ auth.onAuthStateChanged(async user => {
     showAuthScreen();
     return;
   }
-  // User signed in — check if approved
+
+  // Force fresh fetch from server — never use local cache for auth check
+  let snap;
   try {
-    const snap = await db.collection('approvedUsers').doc(user.uid).get();
-    if (!snap.exists) {
-      // Not approved yet — log to pendingUsers so admin can see
-      await db.collection('pendingUsers').doc(user.uid).set({
-        uid: user.uid,
-        email: user.email,
-        name: user.displayName,
-        photoURL: user.photoURL,
-        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, {merge:true});
-      showAccessDenied(user.uid);
-      return;
-    }
-    const userData = snap.data();
-    curUser = user;
-    curRole = userData.role || 'viewer';
-    curName = userData.name || user.displayName;
-    launchApp();
+    snap = await db.collection('approvedUsers').doc(user.uid)
+                   .get({ source: 'server' });
   } catch(e) {
-    showToast('Connection error. Check your internet.','er');
-    showAuthScreen();
+    // Show the REAL error so it can be diagnosed
+    const msg = (e.code || e.message || String(e));
+    const authErr = document.getElementById('authErr');
+    authErr.style.display = 'block';
+    authErr.textContent = 'Error: ' + msg + ' — send screenshot to admin.';
+    document.getElementById('authScreen').classList.add('show');
+    console.error('Firestore auth error:', e);
+    return;
   }
+
+  if (!snap.exists) {
+    // Not in approvedUsers — register as pending (fire-and-forget, never blocks login)
+    db.collection('pendingUsers').doc(user.uid).set({
+      uid: user.uid,
+      email: user.email || '',
+      name: user.displayName || '',
+      photoURL: user.photoURL || '',
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch(() => {});
+    showAccessDenied(user.uid);
+    return;
+  }
+
+  // Approved — launch app
+  const userData = snap.data();
+  curUser  = user;
+  curRole  = userData.role || 'viewer';
+  curName  = userData.name || user.displayName || user.email;
+  launchApp();
 });
 
 function signInGoogle() {
