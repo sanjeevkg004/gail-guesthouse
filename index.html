@@ -759,24 +759,45 @@ auth.onAuthStateChanged(async user => {
     return;
   }
 
-  // Force fresh fetch from server — never use local cache for auth check
+  // Show a status message so user knows what's happening
+  const errEl = document.getElementById('authErr');
+  errEl.style.display = 'block';
+  errEl.style.color = '#1a7340';
+  errEl.textContent = 'Signed in as ' + user.email + ' — checking approval...';
+
   let snap;
   try {
-    snap = await db.collection('approvedUsers').doc(user.uid)
-                   .get({ source: 'server' });
+    // Try server first, fall back to cache if offline
+    try {
+      snap = await db.collection('approvedUsers').doc(user.uid)
+                     .get({ source: 'server' });
+    } catch(networkErr) {
+      // Network failed — try from cache as fallback
+      snap = await db.collection('approvedUsers').doc(user.uid)
+                     .get({ source: 'cache' });
+    }
   } catch(e) {
-    // Show the REAL error so it can be diagnosed
-    const msg = (e.code || e.message || String(e));
-    const authErr = document.getElementById('authErr');
-    authErr.style.display = 'block';
-    authErr.textContent = 'Error: ' + msg + ' — send screenshot to admin.';
+    // Both server and cache failed — show exact error
+    const msg = e.code ? e.code + ': ' + e.message : String(e);
+    errEl.style.color = '#c0392b';
+    errEl.style.display = 'block';
+    errEl.textContent = '❌ DB Error: ' + msg;
     document.getElementById('authScreen').classList.add('show');
     console.error('Firestore auth error:', e);
     return;
   }
 
+  // Show diagnostic info always (we'll remove this after login works)
+  console.log('UID:', user.uid);
+  console.log('Email:', user.email);
+  console.log('Document exists:', snap.exists);
+  if(snap.exists) console.log('Document data:', JSON.stringify(snap.data()));
+
   if (!snap.exists) {
-    // Not in approvedUsers — register as pending (fire-and-forget, never blocks login)
+    // Not in approvedUsers
+    errEl.style.color = '#c0392b';
+    errEl.textContent = '⚠ UID ' + user.uid + ' not found in approvedUsers.';
+    // Register as pending — fire and forget
     db.collection('pendingUsers').doc(user.uid).set({
       uid: user.uid,
       email: user.email || '',
@@ -784,22 +805,34 @@ auth.onAuthStateChanged(async user => {
       photoURL: user.photoURL || '',
       requestedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true }).catch(() => {});
-    showAccessDenied(user.uid);
+    setTimeout(() => showAccessDenied(user.uid), 1500);
     return;
   }
 
-  // Approved — launch app
+  // Check role field exists
   const userData = snap.data();
+  if(!userData.role) {
+    errEl.style.color = '#b45309';
+    errEl.textContent = '⚠ Document found but "role" field is missing. Add role: admin in Firestore.';
+    document.getElementById('authScreen').classList.add('show');
+    return;
+  }
+
+  // All good — launch app
   curUser  = user;
-  curRole  = userData.role || 'viewer';
+  curRole  = userData.role;
   curName  = userData.name || user.displayName || user.email;
   launchApp();
 });
 
 function signInGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  const errEl = document.getElementById('authErr');
+  errEl.style.display = 'none';
   auth.signInWithPopup(provider).catch(e => {
-    document.getElementById('authErr').style.display = 'block';
+    errEl.style.display = 'block';
+    errEl.textContent = 'Sign-in error: ' + (e.code || e.message);
   });
 }
 
