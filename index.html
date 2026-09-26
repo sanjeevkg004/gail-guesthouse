@@ -206,6 +206,26 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
 .sup-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
 .b-early{background:#fee2e2;color:#991b1b}
 .b-typechg{background:#e0f2fe;color:#075985}
+.b-pending{background:#fed7aa;color:#9a3412}
+
+/* ── CHECKOUT-PENDING ROOM CARD STATE ── */
+.rc.pending-co{background:#fef3c7;border-color:#f6d860}
+.rc.pending-co .rn{color:#92400e}
+.rc.pending-co .rs{color:#92400e}
+
+/* ── HEADER CHECKOUT ALERT BADGE ── */
+.checkout-badge-wrap{position:relative;cursor:pointer;font-size:18px;display:flex;align-items:center;padding:0 2px}
+.checkout-alert-badge{position:absolute;top:-6px;right:-8px;background:var(--occ);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--navy)}
+
+/* ── PENDING CHECKOUTS DASHBOARD SECTION ── */
+.pco-th{background:linear-gradient(90deg,#fffbeb,#fff)}
+.pco-th .th-title{color:#92400e}
+
+/* ── ACCESS REQUEST STATE BANNERS ── */
+.reqstate-box{border-radius:var(--r);padding:14px;font-size:12px;line-height:1.7;text-align:left;margin-bottom:14px}
+.reqstate-pending{background:#fef9c3;border:1px solid #fde68a;color:#854d0e}
+.reqstate-rejected{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b}
+.reqstate-approved{background:#dcfce7;border:1px solid #86efac;color:#166534}
 
 /* ── USER MANAGEMENT ── */
 .user-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
@@ -268,14 +288,45 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
   </div>
 </div>
 
-<!-- ══ ACCESS DENIED ══ -->
+<!-- ══ ACCESS DENIED / REQUEST ACCESS ══ -->
 <div id="accessDenied">
   <div class="denied-card">
-    <div class="denied-icon">🔒</div>
-    <div class="denied-title">Access Not Yet Approved</div>
-    <div class="denied-sub">You signed in successfully with Google, but your account has not been approved by the administrator yet.<br><br>Share your User ID below with the Admin (<strong>SKG</strong>) to get access.</div>
-    <div class="uid-box" id="deniedUid">—</div>
-    <button class="btn btn-out" onclick="copyUid()">📋 Copy User ID</button>
+    <div class="denied-icon" id="reqIcon">🔒</div>
+    <div class="denied-title" id="reqTitle">Access Not Yet Approved</div>
+    <div class="denied-sub" id="reqSub">You signed in successfully with Google, but your account has not been approved yet.</div>
+
+    <!-- STATE: no request yet — show Request Access button -->
+    <div id="reqStateNew">
+      <button class="btn btn-gold" style="width:100%;justify-content:center;margin-bottom:10px" onclick="showRequestForm()">📝 Request Access</button>
+    </div>
+
+    <!-- STATE: the actual request form -->
+    <div id="reqForm" style="display:none;text-align:left">
+      <div class="fgr" style="margin-bottom:10px"><label class="fl">Name</label><input type="text" class="fc" id="reqName" placeholder="Your full name"></div>
+      <div class="fgr" style="margin-bottom:10px"><label class="fl">Email</label><input type="text" class="fc" id="reqEmail" disabled></div>
+      <div class="fgr" style="margin-bottom:14px"><label class="fl">Reason / Department *</label><textarea class="fc" id="reqReason" rows="3" placeholder="e.g. Front-desk supervisor, Guest House Vijaipur"></textarea></div>
+      <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="submitAccessRequest()">Submit Request</button>
+    </div>
+
+    <!-- STATE: request already pending -->
+    <div id="reqStatePending" style="display:none">
+      <div class="reqstate-box reqstate-pending">⏳ Your access request is <strong>pending review</strong> by the administrator. You'll be let in automatically as soon as it's approved — keep this tab open, or check back later.</div>
+    </div>
+
+    <!-- STATE: request was rejected -->
+    <div id="reqStateRejected" style="display:none">
+      <div class="reqstate-box reqstate-rejected">
+        ❌ Your access request was <strong>not approved</strong>.
+        <div id="rejReasonDisplay" style="margin-top:6px"></div>
+      </div>
+      <button class="btn btn-gold" style="width:100%;justify-content:center;margin-bottom:10px" onclick="showRequestForm()">Submit a New Request</button>
+    </div>
+
+    <div class="auth-notice" style="margin-top:6px">
+      Prefer to contact the admin directly? Share this ID instead:
+    </div>
+    <div class="uid-box" id="deniedUid" style="margin-top:8px">—</div>
+    <button class="btn btn-out btn-sm" onclick="copyUid()">📋 Copy User ID</button>
     <div style="margin-top:14px"><button class="btn btn-red btn-sm" onclick="signOutUser()">Sign Out</button></div>
   </div>
 </div>
@@ -290,6 +341,9 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
     </div>
   </div>
   <div class="hdr-r">
+    <div class="checkout-badge-wrap ops-only" id="checkoutBadgeWrap" style="display:none" onclick="openCheckoutAlertModal()" title="Pending checkouts">
+      🔔<span class="checkout-alert-badge" id="checkoutBadgeCount" style="display:none">0</span>
+    </div>
     <div class="clock-blk"><span id="lDate">—</span><span id="lTime" style="font-size:10px;color:rgba(255,255,255,.55)">—</span></div>
     <img class="user-av" id="userAv" src="" alt="U">
     <div style="line-height:1.4">
@@ -338,6 +392,15 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
     <div class="sc mnt-c"><div class="sc-lbl">Maintenance</div><div class="sc-num" id="sMnt">0</div><div class="sc-sub">under service</div><div class="sc-icon">🔧</div></div>
   </div>
 
+  <div class="tc ops-only" id="pendingCheckoutWrap" style="display:none;margin-bottom:22px">
+    <div class="th pco-th">
+      <div class="th-title">⏰ Pending Checkouts <span id="pendingCheckoutCount"></span></div>
+      <div style="font-size:11px;color:#92400e">Scheduled checkout date reached — awaiting confirmation</div>
+    </div>
+    <table><thead><tr><th>Room</th><th>Guest</th><th>Category</th><th>Payment</th><th>Scheduled Out</th><th>Action</th></tr></thead>
+    <tbody id="pendingCheckoutBody"><tr><td colspan="6" class="nd">No pending checkouts</td></tr></tbody></table>
+  </div>
+
   <div style="font-size:13px;font-weight:700;color:var(--td);margin-bottom:12px">Category Availability — <span id="availDateLabel" style="color:var(--navy-l)"></span></div>
   <div class="avail-matrix" id="availMatrix"></div>
 
@@ -369,7 +432,7 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
       <div class="th-title">All Reservations <span id="resCount" style="font-size:11px;color:var(--tl)"></span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <input class="si" placeholder="🔍 Guest / Room / ID..." id="srch" oninput="renderTable()" style="width:180px">
-        <select class="si" id="sfStat" onchange="renderTable()"><option value="">All Status</option><option>Confirmed</option><option>Checked-In</option><option>Checked-Out</option><option>Cancelled</option></select>
+        <select class="si" id="sfStat" onchange="renderTable()"><option value="">All Status</option><option>Confirmed</option><option>Checked-In</option><option>Checkout Pending</option><option>Checked-Out</option><option>Cancelled</option></select>
         <select class="si" id="sfPay" onchange="renderTable()"><option value="">All Payment</option><option>Self Payment - Employee</option><option>Self Payment - Vendor</option><option>Company Guest</option></select>
         <select class="si" id="sfCat" onchange="renderTable()"><option value="">All Categories</option><option>VIP</option><option>Single Bed</option><option>Double Bed</option></select>
         <button class="btn btn-gold btn-sm" id="newResBtn2" onclick="openBkMo()" style="display:none">＋ New</button>
@@ -532,7 +595,7 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
       </select>
     </div>
     <div class="fgr"><label class="fl">Status</label>
-      <select class="fc" id="fStat"><option>Confirmed</option><option>Checked-In</option><option>Checked-Out</option><option>Cancelled</option></select>
+      <select class="fc" id="fStat"><option>Confirmed</option><option>Checked-In</option><option>Checkout Pending</option><option>Checked-Out</option><option>Cancelled</option></select>
     </div>
     <div class="fgr"><label class="fl">Booked By</label><input type="text" class="fc" id="fBy" placeholder="Your name"></div>
     <div class="fgr full"><label class="fl">Remarks</label><textarea class="fc" id="fRem" rows="2" placeholder="Special requirements..."></textarea></div>
@@ -548,7 +611,7 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
   <div id="rdContent"></div>
   <!-- SUPERVISOR ACTION BUTTONS (shown when room is occupied and user can act) -->
   <div class="sup-actions" id="supActions" style="display:none">
-    <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5" onclick="togglePanel('earlyBox')">⏩ Early Check-Out</button>
+    <button class="btn btn-sm" id="earlyCheckoutBtn" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5" onclick="togglePanel('earlyBox')">⏩ Early Check-Out</button>
     <button class="btn btn-sm" style="background:#e0f2fe;color:#075985;border:1.5px solid #7dd3fc" onclick="togglePanel('typeChgBox')">🔄 Change Room Type</button>
     <button class="btn btn-sm" style="background:#fffbeb;color:#92400e;border:1.5px solid #f6d860" onclick="togglePanel('swapBox')">↔ Same-Category Swap</button>
   </div>
@@ -667,6 +730,29 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
 </div>
 </div>
 
+<!-- CHECKOUT ALERT MODAL (Pending Checkouts popup) -->
+<div class="mo" id="checkoutAlertMo">
+<div class="md">
+  <div class="mt">⏰ Checkout Confirmation Needed</div>
+  <div style="font-size:12px;color:var(--tm);margin-bottom:14px">The following guests have reached their scheduled checkout date/time. They remain checked-in until you confirm.</div>
+  <div id="checkoutAlertBody"></div>
+  <div class="mf"><button class="btn btn-out" onclick="closeCheckoutAlertModal()">Close — I'll act on this later</button></div>
+</div>
+</div>
+
+<!-- REJECT ACCESS REQUEST MODAL -->
+<div class="mo" id="rejectMo">
+<div class="md">
+  <div class="mt">✕ Reject Access Request</div>
+  <div class="fg">
+    <input type="hidden" id="rejUid">
+    <div class="fgr full"><label class="fl">Requester</label><div id="rejName" style="font-size:13px;font-weight:700;color:var(--td)">—</div></div>
+    <div class="fgr full"><label class="fl">Reason (optional — shown to the requester)</label><textarea class="fc" id="rejReason" rows="3" placeholder="e.g. Not part of current guest house operations team"></textarea></div>
+  </div>
+  <div class="mf"><button class="btn btn-out" onclick="closeRejectModal()">Cancel</button><button class="btn btn-red" onclick="rejectUser()">Reject Request</button></div>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ═══════════════════════════════════════════════════════
@@ -675,12 +761,12 @@ tbody td{padding:10px 12px;font-size:12px;color:var(--td)}
 ═══════════════════════════════════════════════════════ -->
 <script>
 const firebaseConfig = {
-  apiKey:            "AIzaSyCGZINIs_zzU-6on0kuSCaM1qQJ22ZIwPU",
-  authDomain:        "gail-vijaipur-guest-house.firebaseapp.com",
-  projectId:         "gail-vijaipur-guest-house",
-  storageBucket:     "gail-vijaipur-guest-house.firebasestorage.app",
-  messagingSenderId: "405304546163",
-  appId:             "1:405304546163:web:66f5082020d980f20eeb06"
+  apiKey:            "PASTE_YOUR_API_KEY_HERE",
+  authDomain:        "PASTE_YOUR_AUTH_DOMAIN_HERE",
+  projectId:         "PASTE_YOUR_PROJECT_ID_HERE",
+  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET_HERE",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID_HERE",
+  appId:             "PASTE_YOUR_APP_ID_HERE"
 };
 </script>
 <!-- ═══ END FIREBASE CONFIG ═══ -->
@@ -738,6 +824,9 @@ let roomStatus   = {};  // {num: 'active'|'maintenance'}
 let approvedUsers = [];
 let detailResId  = null;
 let unsubRes, unsubSwap; // Firestore listeners
+let unsubApprovalCheck, unsubPendingCheck; // access-request screen listeners
+let pendingCheckoutInterval = null;
+let alertedCheckoutIds = new Set(JSON.parse(localStorage.getItem('gh_alertedCheckouts')||'[]'));
 
 // ══════════════════════════════════════════════════
 // FIREBASE INIT
@@ -794,18 +883,12 @@ auth.onAuthStateChanged(async user => {
   if(snap.exists) console.log('Document data:', JSON.stringify(snap.data()));
 
   if (!snap.exists) {
-    // Not in approvedUsers
+    // Not in approvedUsers — hand off to the Request Access screen, which
+    // reads/writes pendingUsers itself (no blind overwrite here anymore,
+    // so an existing Pending/Rejected request status is never clobbered).
     errEl.style.color = '#c0392b';
-    errEl.textContent = '⚠ UID ' + user.uid + ' not found in approvedUsers.';
-    // Register as pending — fire and forget
-    db.collection('pendingUsers').doc(user.uid).set({
-      uid: user.uid,
-      email: user.email || '',
-      name: user.displayName || '',
-      photoURL: user.photoURL || '',
-      requestedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true }).catch(() => {});
-    setTimeout(() => showAccessDenied(user.uid), 1500);
+    errEl.textContent = '⚠ Not yet approved (UID ' + user.uid + ').';
+    setTimeout(() => showAccessDenied(user), 1000);
     return;
   }
 
@@ -839,6 +922,9 @@ function signInGoogle() {
 function signOutUser() {
   if(unsubRes) unsubRes();
   if(unsubSwap) unsubSwap();
+  if(unsubApprovalCheck) unsubApprovalCheck();
+  if(unsubPendingCheck) unsubPendingCheck();
+  if(pendingCheckoutInterval) clearInterval(pendingCheckoutInterval);
   auth.signOut();
 }
 
@@ -846,12 +932,91 @@ function showAuthScreen() {
   hide('accessDenied'); hide('appHdr'); hide('appNav'); hide('appMain');
   document.getElementById('authScreen').classList.add('show');
 }
-function showAccessDenied(uid) {
+// user: the Firebase Auth user object (needed for uid/email/displayName when
+// pre-filling the Request Access form and for the real-time listeners below).
+function showAccessDenied(user) {
   document.getElementById('authScreen').classList.remove('show');
   hide('appHdr'); hide('appNav'); hide('appMain');
-  document.getElementById('deniedUid').textContent = uid;
+  document.getElementById('deniedUid').textContent = user.uid;
+  document.getElementById('reqName').value  = user.displayName || '';
+  document.getElementById('reqEmail').value = user.email || '';
   document.getElementById('accessDenied').classList.add('show');
+
+  // Stop any previous listeners before attaching new ones (e.g. re-entry after sign-out/in)
+  if(unsubPendingCheck) unsubPendingCheck();
+  if(unsubApprovalCheck) unsubApprovalCheck();
+
+  // Live status of the user's own request — updates the screen the instant
+  // an Admin approves or rejects, without needing a manual refresh.
+  unsubPendingCheck = db.collection('pendingUsers').doc(user.uid)
+    .onSnapshot(snap => {
+      if(!snap.exists){ setReqState('new'); return; }
+      const d = snap.data();
+      if(d.status === 'Rejected'){
+        setReqState('rejected', d.rejectionReason);
+      } else {
+        // status 'Pending' or missing (older records) both mean pending
+        setReqState('pending');
+      }
+    }, ()=>{ /* read may be blocked until rules are updated — fall back to 'new' state */ setReqState('new'); });
+
+  // Auto-transition into the app the moment an Admin approves (creates this doc).
+  unsubApprovalCheck = db.collection('approvedUsers').doc(user.uid)
+    .onSnapshot(snap => {
+      if(snap.exists){
+        const d = snap.data();
+        if(unsubApprovalCheck) unsubApprovalCheck();
+        if(unsubPendingCheck) unsubPendingCheck();
+        curUser = user;
+        curRole = d.role || 'viewer';
+        curName = d.name || user.displayName || user.email;
+        showToast('Access approved — welcome!','ok');
+        launchApp();
+      }
+    }, ()=>{});
 }
+
+function setReqState(state, rejectionReason){
+  ['reqStateNew','reqForm','reqStatePending','reqStateRejected'].forEach(id=>hide(id));
+  if(state==='new'){ show('reqStateNew'); }
+  if(state==='pending'){ show('reqStatePending'); }
+  if(state==='rejected'){
+    show('reqStateRejected');
+    document.getElementById('rejReasonDisplay').textContent = rejectionReason ? 'Reason: ' + rejectionReason : '';
+  }
+}
+
+function showRequestForm(){
+  ['reqStateNew','reqStatePending','reqStateRejected'].forEach(id=>hide(id));
+  show('reqForm');
+}
+
+async function submitAccessRequest(){
+  const uid = document.getElementById('deniedUid').textContent;
+  const name = document.getElementById('reqName').value.trim();
+  const email = document.getElementById('reqEmail').value.trim();
+  const reason = document.getElementById('reqReason').value.trim();
+  if(!name || !reason){ showToast('Please fill in your name and reason.','er'); return; }
+
+  try{
+    // Guard against a duplicate submission racing with an admin action —
+    // re-check current status immediately before writing.
+    const existing = await db.collection('pendingUsers').doc(uid).get();
+    if(existing.exists && existing.data().status === 'Pending'){
+      showToast('You already have a pending request.','er');
+      setReqState('pending');
+      return;
+    }
+    await db.collection('pendingUsers').doc(uid).set({
+      uid, name, email, reason,
+      status: 'Pending',
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast('Request submitted — awaiting admin approval.','ok');
+    setReqState('pending');
+  }catch(e){ showToast('Error submitting request: '+e.message,'er'); }
+}
+
 function copyUid() {
   const uid = document.getElementById('deniedUid').textContent;
   navigator.clipboard.writeText(uid).then(()=>showToast('UID copied!','ok'));
@@ -878,6 +1043,7 @@ function launchApp() {
   const isAdmin = curRole==='admin';
   const canEdit = isAdmin || curRole==='supervisor';
   document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin?'':'none');
+  document.querySelectorAll('.ops-only').forEach(el=>el.style.display=canEdit?'':'none');
   document.querySelectorAll('#newResBtn,#newResBtn2').forEach(el=>el.style.display=isAdmin?'inline-flex':'none');
 
   // Init dates
@@ -894,6 +1060,14 @@ function launchApp() {
   loadRoomStatus();
 
   if(isAdmin) loadUsers();
+
+  // Re-check for newly-due checkouts every 5 minutes while the app stays open,
+  // so a stay that crosses its checkout date/time mid-session still gets flagged
+  // even without new reservation activity triggering the snapshot listener.
+  if(canEdit){
+    if(pendingCheckoutInterval) clearInterval(pendingCheckoutInterval);
+    pendingCheckoutInterval = setInterval(checkPendingCheckouts, 5*60*1000);
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -917,6 +1091,7 @@ function startListeners() {
       setSyncStatus('ok');
       refDash();
       if(document.getElementById('s-bookings').classList.contains('active')) renderTable();
+      checkPendingCheckouts(); // auto-flag any Checked-In stays whose date has passed
     }, ()=>setSyncStatus('error'));
 
   unsubSwap = db.collection('swapLog')
@@ -932,6 +1107,103 @@ async function loadRoomStatus() {
   snap.docs.forEach(d=>{ roomStatus[parseInt(d.id)]=d.data().status||'active'; });
   refDash();
 }
+
+// ══════════════════════════════════════════════════
+// SUPERVISOR/ADMIN-CONTROLLED CHECKOUT
+// ══════════════════════════════════════════════════
+
+// Auto-flag any 'Checked-In' stay whose checkout date has been reached —
+// moves it to 'Checkout Pending' instead of silently checking it out.
+// Idempotent: once flagged, status is no longer 'Checked-In' so it won't re-match.
+async function checkPendingCheckouts(){
+  if(curRole==='viewer') return; // only admin/supervisor can write this transition
+  const today = tod();
+  const toFlag = reservations.filter(r => r.status==='Checked-In' && r.checkOut<=today);
+  for(const r of toFlag){
+    try{
+      await db.collection('reservations').doc(r.id).update({
+        status: 'Checkout Pending',
+        checkoutPendingSince: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }catch(e){ console.error('Failed to flag pending checkout', r.id, e); }
+  }
+}
+
+// Explicit Supervisor/Admin confirmation — the ONLY way a 'Checkout Pending'
+// stay becomes 'Checked-Out'.
+async function confirmPendingCheckout(id){
+  if(curRole==='viewer'){ showToast('View-only access.','er'); return; }
+  try{
+    await db.collection('reservations').doc(id).update({
+      status: 'Checked-Out',
+      checkoutConfirmedBy: curName,
+      checkoutConfirmedByUid: curUser.uid,
+      checkoutConfirmedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast('Checkout confirmed.','ok');
+  }catch(e){ showToast('Error: '+e.message,'er'); }
+}
+
+// Renders: (1) the dashboard "Pending Checkouts" section, (2) the header alert badge,
+// (3) auto-opens a popup for any NEW pending checkout not yet alerted this browser.
+function renderPendingCheckouts(){
+  const wrap = document.getElementById('pendingCheckoutWrap');
+  if(!wrap) return; // guard in case called before DOM ready
+  const canAct = curRole==='admin' || curRole==='supervisor';
+
+  const list = reservations.filter(r => r.status==='Checkout Pending');
+
+  // Badge (admin/supervisor only)
+  const badgeWrap = document.getElementById('checkoutBadgeWrap');
+  const badgeCount = document.getElementById('checkoutBadgeCount');
+  if(canAct && list.length){
+    badgeWrap.style.display='flex';
+    badgeCount.style.display='flex';
+    badgeCount.textContent = list.length;
+  } else if(badgeWrap){
+    badgeCount.style.display='none';
+  }
+
+  // Dashboard section (admin/supervisor only — viewers never see this table)
+  if(!canAct){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+
+  const pm={'Self Payment - Employee':'b-emp','Self Payment - Vendor':'b-vend','Company Guest':'b-comp'};
+  document.getElementById('pendingCheckoutBody').innerHTML = list.length ? list.map(r=>`<tr>
+    <td><strong>${r.actualRoom||r.room}</strong></td>
+    <td>${r.guest}</td>
+    <td><span class="badge b-vip2">${r.cat||'—'}</span></td>
+    <td><span class="badge ${pm[r.payType]||'b-conf'}" style="font-size:9px">${r.payType||'—'}</span></td>
+    <td>${fD(r.checkOut)}</td>
+    <td><button class="btn btn-gold btn-xs" onclick="confirmPendingCheckout('${r.id}')">✅ Confirm Checkout</button></td>
+  </tr>`).join('') : '<tr><td colspan="6" class="nd">No pending checkouts</td></tr>';
+  document.getElementById('pendingCheckoutCount').textContent = list.length ? `(${list.length})` : '';
+
+  // Auto-popup for genuinely NEW pending checkouts only (not already alerted this browser)
+  const fresh = list.filter(r => !alertedCheckoutIds.has(r.id));
+  if(fresh.length){
+    fresh.forEach(r => alertedCheckoutIds.add(r.id));
+    localStorage.setItem('gh_alertedCheckouts', JSON.stringify([...alertedCheckoutIds]));
+    openCheckoutAlertModal();
+  }
+}
+
+function openCheckoutAlertModal(){
+  const list = reservations.filter(r => r.status==='Checkout Pending');
+  const pm={'Self Payment - Employee':'b-emp','Self Payment - Vendor':'b-vend','Company Guest':'b-comp'};
+  document.getElementById('checkoutAlertBody').innerHTML = list.length ? list.map(r=>`
+    <div class="user-row">
+      <div class="user-info">
+        <div class="user-name">Room ${r.actualRoom||r.room} — ${r.guest}</div>
+        <div class="user-email">${r.cat||''} · <span class="badge ${pm[r.payType]||'b-conf'}" style="font-size:9px">${r.payType||'—'}</span> · Scheduled: ${fD(r.checkOut)}</div>
+      </div>
+      <button class="btn btn-gold btn-xs" onclick="confirmPendingCheckout('${r.id}')">✅ Confirm</button>
+    </div>`).join('') : '<div class="nd">No pending checkouts</div>';
+  document.getElementById('checkoutAlertMo').classList.add('open');
+}
+function closeCheckoutAlertModal(){ document.getElementById('checkoutAlertMo').classList.remove('open'); }
 
 // ══════════════════════════════════════════════════
 // CLOCK
@@ -964,7 +1236,12 @@ function sw(n){
 function tod(){ return new Date().toISOString().split('T')[0]; }
 function fD(d){ if(!d) return '—'; const p=d.split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d; }
 function nts(a,b){ if(!a||!b) return 0; return Math.max(0,Math.round((new Date(b)-new Date(a))/86400000)); }
-function isOcc(r,dt){ return ['Confirmed','Checked-In'].includes(r.status)&&r.checkIn<=dt&&r.checkOut>dt; }
+function isOcc(r,dt){
+  // A "Checkout Pending" stay has no confirmed end date yet — treat as occupied
+  // for any date from check-in onward, until Admin/Supervisor confirms checkout.
+  if(r.status==='Checkout Pending') return r.checkIn<=dt;
+  return ['Confirmed','Checked-In'].includes(r.status)&&r.checkIn<=dt&&r.checkOut>dt;
+}
 function roomOf(r){ return r.actualRoom||r.room; }
 function hide(id){ document.getElementById(id).style.display='none'; }
 function show(id){ document.getElementById(id).style.display=''; }
@@ -994,6 +1271,7 @@ function refDash(){
   renderAvailMatrix(cats);
   renderFloorGrid(dt,occRooms);
   renderMovements(dt);
+  renderPendingCheckouts();
 }
 
 function renderAvailMatrix(cats){
@@ -1013,8 +1291,9 @@ function renderFloorGrid(dt,occRooms){
   const mkGrid=rooms=>rooms.map(rm=>{
     const res=occRooms[rm.num]; const isMnt=(roomStatus[rm.num]||'active')==='maintenance';
     const isVip=rm.cat==='VIP';
-    let cls=isMnt?'maint':res?'occ':'vac'; if(isVip&&!isMnt)cls+=' vip-r';
-    const st=isMnt?'🔧 Maint.':res?'🔴 Occupied':'🟢 Vacant';
+    const isPendingCo = res && res.status==='Checkout Pending';
+    let cls=isMnt?'maint':res?'occ':'vac'; if(isVip&&!isMnt)cls+=' vip-r'; if(isPendingCo)cls+=' pending-co';
+    const st=isMnt?'🔧 Maint.':res?(isPendingCo?'🟠 Checkout Pending':'🔴 Occupied'):'🟢 Vacant';
     const hasSwap=res&&res.actualRoom&&res.actualRoom!==res.room;
     const hasTypeChg=res&&res.typeChanged;
     const hasEarlyCo=res&&res.earlyCheckout;
@@ -1040,7 +1319,7 @@ function renderFloorGrid(dt,occRooms){
 
 function renderMovements(dt){
   const arr=reservations.filter(r=>r.checkIn===dt&&r.status!=='Cancelled');
-  const dep=reservations.filter(r=>r.checkOut===dt&&['Confirmed','Checked-In','Checked-Out'].includes(r.status));
+  const dep=reservations.filter(r=>r.checkOut===dt&&['Confirmed','Checked-In','Checkout Pending','Checked-Out'].includes(r.status));
   const pm={'Self Payment - Employee':'b-emp','Self Payment - Vendor':'b-vend','Company Guest':'b-comp'};
   const canAction=curRole==='admin'||curRole==='supervisor';
   const mkIn=l=>l.length?l.map(r=>`<tr>
@@ -1049,10 +1328,15 @@ function renderMovements(dt){
     <td><span class="badge ${pm[r.payType]||'b-conf'}" style="font-size:9px">${r.payType||'—'}</span></td>
     <td>${canAction?`<button class="btn btn-grn btn-xs" onclick="chStat('${r.id}','Checked-In')">Check In</button>`:''}</td>
   </tr>`).join(''):'<tr><td colspan="5" class="nd">None today</td></tr>';
-  const mkOut=l=>l.length?l.map(r=>`<tr>
+  const mkOut=l=>l.length?l.map(r=>{
+    let actionBtn='';
+    if(canAction && r.status==='Checkout Pending') actionBtn=`<button class="btn btn-gold btn-xs" onclick="confirmPendingCheckout('${r.id}')">✅ Confirm</button>`;
+    else if(canAction && r.status==='Checked-In') actionBtn=`<button class="btn btn-navy btn-xs" onclick="chStat('${r.id}','Checked-Out')">Check Out</button>`;
+    return `<tr>
     <td><strong>${r.actualRoom||r.room}</strong></td><td>${r.guest}</td><td>${nts(r.checkIn,r.checkOut)}</td>
-    <td>${canAction?`<button class="btn btn-navy btn-xs" onclick="chStat('${r.id}','Checked-Out')">Check Out</button>`:''}</td>
-  </tr>`).join(''):'<tr><td colspan="4" class="nd">None today</td></tr>';
+    <td>${actionBtn}</td>
+  </tr>`;
+  }).join(''):'<tr><td colspan="4" class="nd">None today</td></tr>';
   document.getElementById('todayIn').innerHTML=mkIn(arr);
   document.getElementById('todayOut').innerHTML=mkOut(dep);
 }
@@ -1071,7 +1355,7 @@ function showRoomDetail(num){
     <div><span style="color:var(--tl)">Category</span><br><strong>${rm.cat}</strong></div>
     <div><span style="color:var(--tl)">Floor</span><br><strong>${rm.floor}</strong></div>
     <div><span style="color:var(--tl)">Bed Type</span><br><strong>${rm.beds}</strong></div>
-    <div><span style="color:var(--tl)">Status</span><br><strong>${(roomStatus[num]||'active')==='maintenance'?'🔧 Maintenance':cur?'🔴 Occupied':'🟢 Vacant'}</strong></div>
+    <div><span style="color:var(--tl)">Status</span><br><strong>${(roomStatus[num]||'active')==='maintenance'?'🔧 Maintenance':cur?(cur.status==='Checkout Pending'?'🟠 Checkout Pending':'🔴 Occupied'):'🟢 Vacant'}</strong></div>
   </div>`;
   if(cur){
     h+=`<div style="background:var(--occ-bg);border:1px solid var(--occ-br);border-radius:var(--r);padding:12px;margin-bottom:12px;font-size:12px">
@@ -1084,9 +1368,11 @@ function showRoomDetail(num){
       ${hasSwap?`<div style="margin-top:5px;font-size:10px;color:var(--mnt);font-weight:700">⇄ Allotted: Rm ${cur.room} → Actual: Rm ${cur.actualRoom}</div>`:''}
       ${cur.typeChanged?`<div style="margin-top:5px;font-size:10px;color:#075985;font-weight:700">🔄 Type changed: ${cur.originalCat} → ${cur.cat} (by ${cur.typeChangedBy||'—'})</div>`:''}
       ${cur.earlyCheckout?`<div style="margin-top:5px;font-size:10px;color:#991b1b;font-weight:700">⏩ Early checkout: original date was ${fD(cur.originalCheckOut)} · Reason: ${cur.earlyCheckoutReason||'—'}</div>`:''}
+      ${cur.status==='Checkout Pending'?`<div style="margin-top:5px;font-size:10px;color:#92400e;font-weight:700">⏰ Scheduled checkout (${fD(cur.checkOut)}) has passed — awaiting Supervisor/Admin confirmation.</div>`:''}
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
         ${curRole==='admin'?`<button class="btn btn-out btn-xs" onclick="editRes('${cur.id}');closeRdMo()">Edit</button>`:''}
-        ${curRole!=='viewer'&&cur.status!=='Checked-Out'?`<button class="btn btn-navy btn-xs" onclick="chStat('${cur.id}','Checked-Out');closeRdMo()">Check Out</button>`:''}
+        ${cur.status==='Checkout Pending'&&curRole!=='viewer'?`<button class="btn btn-gold btn-xs" onclick="confirmPendingCheckout('${cur.id}');closeRdMo()">✅ Confirm Checkout</button>`:''}
+        ${cur.status==='Checked-In'&&curRole!=='viewer'?`<button class="btn btn-navy btn-xs" onclick="chStat('${cur.id}','Checked-Out');closeRdMo()">Check Out</button>`:''}
       </div>
     </div>`;
   }
@@ -1102,6 +1388,11 @@ function showRoomDetail(num){
   if(cur && canAct){
     // Show supervisor action buttons
     supBar.style.display='flex';
+
+    // "Early" checkout only makes sense before the scheduled date has passed.
+    // Once a stay is 'Checkout Pending', use the dedicated Confirm Checkout action instead.
+    const earlyBtn = document.getElementById('earlyCheckoutBtn');
+    if(earlyBtn) earlyBtn.style.display = (cur.status==='Checkout Pending') ? 'none' : 'inline-flex';
 
     // Pre-fill early checkout date with today as default
     document.getElementById('earlyDate').value = tod();
@@ -1309,8 +1600,11 @@ function hasDateConflict(roomNum, newCheckIn, newCheckOut, excludeResId){
   if(!newCheckIn || !newCheckOut) return false;
   return reservations.some(r => {
     if(excludeResId && r.id === excludeResId) return false;  // ignore self when editing
-    if(!['Confirmed','Checked-In'].includes(r.status)) return false;
     if(roomOf(r) !== roomNum) return false;
+    // Guest hasn't been confirmed as departed yet — their real end date is unknown,
+    // so block ANY new booking on this room regardless of stored dates.
+    if(r.status === 'Checkout Pending') return true;
+    if(!['Confirmed','Checked-In'].includes(r.status)) return false;
     // Overlap condition: new stay starts before existing ends AND new stay ends after existing starts
     return newCheckIn < r.checkOut && newCheckOut > r.checkIn;
   });
@@ -1411,8 +1705,9 @@ async function saveRes(){
     // Find the conflicting reservation to show useful detail
     const clash = reservations.find(r => {
       if(eid && r.id===eid) return false;
-      if(!['Confirmed','Checked-In'].includes(r.status)) return false;
       if(roomOf(r) !== room) return false;
+      if(r.status === 'Checkout Pending') return true;
+      if(!['Confirmed','Checked-In'].includes(r.status)) return false;
       return cin < r.checkOut && cout > r.checkIn;
     });
     const clashInfo = clash
@@ -1474,7 +1769,7 @@ function renderTable(){
   if(sc) list=list.filter(r=>r.cat===sc);
   document.getElementById('resCount').textContent=`(${list.length} records)`;
   const pm={'Self Payment - Employee':'b-emp','Self Payment - Vendor':'b-vend','Company Guest':'b-comp'};
-  const sm={'Confirmed':'b-conf','Checked-In':'b-in','Checked-Out':'b-out','Cancelled':'b-can'};
+  const sm={'Confirmed':'b-conf','Checked-In':'b-in','Checkout Pending':'b-pending','Checked-Out':'b-out','Cancelled':'b-can'};
   const isAdmin=curRole==='admin';
   const canAction=curRole==='admin'||curRole==='supervisor';
   document.getElementById('bBody').innerHTML=list.length?list.map(r=>{
@@ -1561,7 +1856,7 @@ function genRpt(){
     const c=list.filter(r=>r.payType===pt).length;
     return `<div class="sc"><div class="sc-lbl">${pt}</div><div class="sc-num" style="color:${pyClr[pt]}">${c}</div><div class="sc-sub">bookings</div></div>`;
   }).join('');
-  const sm={'Confirmed':'b-conf','Checked-In':'b-in','Checked-Out':'b-out','Cancelled':'b-can'};
+  const sm={'Confirmed':'b-conf','Checked-In':'b-in','Checkout Pending':'b-pending','Checked-Out':'b-out','Cancelled':'b-can'};
   document.getElementById('rBody').innerHTML=list.length?list.map(r=>`<tr>
     <td style="font-size:10px;color:var(--tl)">${r.id}</td><td>${r.room}</td>
     <td>${r.actualRoom&&r.actualRoom!==r.room?`<strong style="color:var(--occ)">${r.actualRoom}</strong> ⇄`:'—'}</td>
@@ -1603,6 +1898,8 @@ function doExport(data,fname){
     'Early CO Reason':r.earlyCheckoutReason||'',
     'Type Changed':r.typeChanged?'Yes':'No',
     'Type Change Reason':r.typeChangeReason||'',
+    'Checkout Confirmed By':r.checkoutConfirmedBy||'',
+    'Checkout Confirmed At':fmtTS(r.checkoutConfirmedAt),
     'Payment Type':r.payType||'',
     'Status':r.status,
     'Booked By':r.by||'',
@@ -1715,7 +2012,9 @@ async function loadUsers(){
     const pSnap=await db.collection('pendingUsers').get();
     const pending=pSnap.docs.map(d=>({uid:d.id,...d.data()}));
     const approvedUids=new Set(approvedUsers.map(u=>u.uid));
-    const pendingOnly=pending.filter(u=>!approvedUids.has(u.uid));
+    // Actionable pending list = not yet approved AND not already rejected
+    // (missing 'status' on older records is treated as Pending for backward compatibility)
+    const pendingOnly=pending.filter(u=>!approvedUids.has(u.uid) && u.status!=='Rejected');
     const roleClr={admin:'r-admin',supervisor:'r-supervisor',viewer:'r-viewer'};
     document.getElementById('userList').innerHTML=approvedUsers.length?approvedUsers.map(u=>`
       <div class="user-row">
@@ -1735,11 +2034,40 @@ async function loadUsers(){
     document.getElementById('pendingList').innerHTML=pendingOnly.length?pendingOnly.map(u=>`
       <div class="user-row">
         <div class="user-av-sm">${(u.name||'?')[0].toUpperCase()}</div>
-        <div class="user-info"><div class="user-name">${u.name||'—'}</div><div class="user-email">${u.email||u.uid}</div></div>
+        <div class="user-info">
+          <div class="user-name">${u.name||'—'}</div>
+          <div class="user-email">${u.email||u.uid}</div>
+          ${u.reason?`<div style="font-size:11px;color:var(--tm);margin-top:2px">"${u.reason}"</div>`:''}
+        </div>
         <select class="si" style="font-size:11px;padding:4px 8px" id="pr_${u.uid}"><option value="viewer">Viewer</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option></select>
-        <button class="btn btn-grn btn-xs" onclick="approveUser('${u.uid}','${u.name||''}','${u.email||''}')">✓ Approve</button>
+        <button class="btn btn-grn btn-xs" onclick="approveUser('${u.uid}','${(u.name||'').replace(/'/g,"&#39;")}','${u.email||''}')">✓ Approve</button>
+        <button class="btn btn-red btn-xs" onclick="openRejectModal('${u.uid}','${(u.name||u.email||u.uid).replace(/'/g,"&#39;")}')">✕ Reject</button>
       </div>`).join(''):'<div class="nd">No pending requests</div>';
   }catch(e){showToast('Error loading users.','er');}
+}
+
+function openRejectModal(uid, name){
+  document.getElementById('rejUid').value = uid;
+  document.getElementById('rejName').textContent = name;
+  document.getElementById('rejReason').value = '';
+  document.getElementById('rejectMo').classList.add('open');
+}
+function closeRejectModal(){ document.getElementById('rejectMo').classList.remove('open'); }
+
+async function rejectUser(){
+  const uid = document.getElementById('rejUid').value;
+  const reason = document.getElementById('rejReason').value.trim();
+  try{
+    await db.collection('pendingUsers').doc(uid).update({
+      status: 'Rejected',
+      rejectionReason: reason,
+      reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      reviewedBy: curUser.uid
+    });
+    showToast('Request rejected.','ok');
+    closeRejectModal();
+    loadUsers();
+  }catch(e){ showToast('Error: '+e.message,'er'); }
 }
 
 function openAddUser(){ document.getElementById('addUserMo').classList.add('open'); }
@@ -1761,6 +2089,11 @@ async function approveUser(uid,name,email){
   const role=document.getElementById('pr_'+uid).value;
   try{
     await db.collection('approvedUsers').doc(uid).set({name,email,role,addedBy:curUser.uid,addedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    // Keep the pendingUsers record for audit trail, marked Approved (doc may not
+    // exist if Admin used the manual "+ Add User" path instead — ignore that case).
+    db.collection('pendingUsers').doc(uid).update({
+      status:'Approved', reviewedAt:firebase.firestore.FieldValue.serverTimestamp(), reviewedBy:curUser.uid
+    }).catch(()=>{});
     showToast(`${name} approved as ${role}!`,'ok'); loadUsers();
   }catch(e){showToast('Error: '+e.message,'er');}
 }
@@ -1832,7 +2165,9 @@ function showToast(m,t=''){
 document.getElementById('bkMo').addEventListener('click',function(e){if(e.target===this)closeBkMo();});
 document.getElementById('rdMo').addEventListener('click',function(e){if(e.target===this)closeRdMo();});
 document.getElementById('addUserMo').addEventListener('click',function(e){if(e.target===this)closeAddUser();});
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeBkMo();closeRdMo();closeAddUser();}});
+document.getElementById('checkoutAlertMo').addEventListener('click',function(e){if(e.target===this)closeCheckoutAlertModal();});
+document.getElementById('rejectMo').addEventListener('click',function(e){if(e.target===this)closeRejectModal();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeBkMo();closeRdMo();closeAddUser();closeCheckoutAlertModal();closeRejectModal();}});
 </script>
 </body>
 </html>
